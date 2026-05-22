@@ -20,6 +20,7 @@ export default defineConfig({
     }
   ],
   build: {
+    target: 'esnext',
     outDir: 'dist',
     emptyOutDir: true,
     sourcemap: false,
@@ -28,7 +29,8 @@ export default defineConfig({
         popup: resolve(__dirname, 'src/popup/index.html'),
         offscreen: resolve(__dirname, 'src/offscreen/offscreen.html'),
         background: resolve(__dirname, 'src/background/serviceWorker.ts'),
-        processor: resolve(__dirname, 'src/worklet/surround-processor.ts')
+        processor: resolve(__dirname, 'src/worklet/surround-processor.ts'),
+        dashboard: resolve(__dirname, 'src/dashboard/index.html')
       },
       output: {
         entryFileNames: (chunkInfo) => {
@@ -40,6 +42,9 @@ export default defineConfig({
           }
           if (chunkInfo.name === 'offscreen') {
             return 'offscreen/offscreen.js';
+          }
+          if (chunkInfo.name === 'dashboard') {
+            return 'dashboard/dashboard.js';
           }
           return 'assets/[name]-[hash].js';
         },

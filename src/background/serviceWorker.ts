@@ -3,6 +3,7 @@
 // Coordinates tabCapture streams, hotkeys, and the offscreen audio renderer.
 
 const OFFSCREEN_PATH = 'src/offscreen/offscreen.html';
+let activeCapturedTabId: number | null = null;
 
 // Listen for keyboard shortcuts
 chrome.commands.onCommand.addListener((command) => {
@@ -67,6 +68,15 @@ async function startTabAudioCapture() {
       throw new Error("No active tab found to capture.");
     }
 
+    // Check if we are already capturing this active tab
+    if (activeCapturedTabId === tab.id) {
+      const hasDoc = await hasOffscreenDocument();
+      if (hasDoc) {
+        console.log(`Already capturing tab ${tab.id}. Skipping recapture.`);
+        return { tabTitle: tab.title };
+      }
+    }
+
     // 2. Fetch settings
     const data = await chrome.storage.local.get('surround_settings');
     const settings = data.surround_settings || {};
@@ -97,6 +107,7 @@ async function startTabAudioCapture() {
     });
 
     console.log(`Successfully started surround sound processing for tab: ${tab.title} (${tab.id})`);
+    activeCapturedTabId = tab.id;
     return { tabTitle: tab.title };
   } catch (err: any) {
     console.error('Failed to start tab audio capture:', err);
@@ -111,11 +122,15 @@ async function stopTabAudioCapture() {
     settings.isEnabled = false;
     await chrome.storage.local.set({ 'surround_settings': settings });
 
+    // Notify any open Popups or Dashboards to sync their UI state
+    chrome.runtime.sendMessage({ type: 'SETTINGS_UPDATE', settings }).catch(() => {});
+
     const hasDoc = await hasOffscreenDocument();
     if (hasDoc) {
       await chrome.runtime.sendMessage({ type: 'STOP_CAPTURE' }).catch(() => {});
       await chrome.offscreen.closeDocument();
     }
+    activeCapturedTabId = null;
     console.log('Stopped tab audio capture and closed offscreen document.');
   } catch (err) {
     console.error('Failed to stop tab audio capture:', err);
@@ -156,6 +171,21 @@ async function hasOffscreenDocument(): Promise<boolean> {
   return contexts && contexts.length > 0;
 }
 
+// Monitor captured tab lifecycle events to stop capturing when tab is closed or navigated
+chrome.tabs.onRemoved.addListener((tabId) => {
+  if (tabId === activeCapturedTabId) {
+    console.log(`Captured tab ${tabId} removed. Releasing spatializer.`);
+    stopTabAudioCapture().catch(() => {});
+  }
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (tabId === activeCapturedTabId && changeInfo.status === 'loading') {
+    console.log(`Captured tab ${tabId} refreshed or navigated. Releasing spatializer.`);
+    stopTabAudioCapture().catch(() => {});
+  }
+});
+
 // Set initial configuration parameters upon extension install
 chrome.runtime.onInstalled.addListener(async () => {
   const data = await chrome.storage.local.get('surround_settings');
@@ -163,7 +193,7 @@ chrome.runtime.onInstalled.addListener(async () => {
     await chrome.storage.local.set({
       'surround_settings': {
         isEnabled: false,
-        preset: 'cinema',
+        preset: 'cinema_ref',
         hrtfProfile: 'sadie',
         volume: 0.85,
         surroundIntensity: 0.85,
@@ -173,7 +203,18 @@ chrome.runtime.onInstalled.addListener(async () => {
         crosstalkCancellation: true,
         dynamicEQ: true,
         customIRName: null,
-        customIRData: null
+        customIRData: null,
+        isAIEnabled: false,
+        hearingProfile: {
+          left: [0, 0, 0, 0],
+          right: [0, 0, 0, 0]
+        },
+        headphoneProfile: 'none',
+        roomSize: 0.5,
+        roomAbsorption: 0.5,
+        deEsserIntensity: 0.4,
+        spectralWarmth: 0.3,
+        driftAmount: 0.2
       }
     });
   }

@@ -1,113 +1,67 @@
 import React, { useEffect, useState } from 'react';
 import { useStore, PRESETS } from '../utils/store';
-import { SpeakerVisualizer } from './components/SpeakerVisualizer';
-import { AudioVisualizer } from './components/AudioVisualizer';
-import { runDSPDiagnostics, DiagnosticResult } from '../utils/offline-tester';
 import { 
-  Volume2, 
-  Compass, 
-  Tv, 
-  Settings, 
-  Sparkles, 
-  UploadCloud, 
-  Trash2, 
-  Info,
+  Layers,
+  Ear,
   Radio,
-  Activity,
-  X,
-  CheckCircle2,
-  AlertCircle
+  ExternalLink,
+  Cpu
 } from 'lucide-react';
 
 const App: React.FC = () => {
   const {
     isEnabled,
     preset,
-    hrtfProfile,
-    volume,
-    surroundIntensity,
-    bassBoost,
-    dialogueEnhance,
-    roomReflections,
-    crosstalkCancellation,
-    dynamicEQ,
-    customIRName,
+    headphoneProfile,
     activeTabTitle,
+    isAIEnabled,
     initStore,
     setSetting,
     applyPreset,
     toggleEnabled,
-    uploadCustomIR,
-    clearCustomIR
+    disconnectCapture
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'profiles' | 'enhancers'>('dashboard');
-  const [levels, setLevels] = useState<number[]>(new Array(8).fill(0));
-  const [spectrum, setSpectrum] = useState<number[]>(new Array(128).fill(0));
-  
-  const [diagnosticResult, setDiagnosticResult] = useState<DiagnosticResult | null>(null);
-  const [isRunningDiag, setIsRunningDiag] = useState(false);
-  const [showDiagModal, setShowDiagModal] = useState(false);
+  const [levels, setLevels] = useState<number[]>(new Array(10).fill(0));
+  const [detectedAIClass, setDetectedAIClass] = useState<string>('flat');
 
-  const handleRunDiagnostics = async () => {
-    setIsRunningDiag(true);
-    setShowDiagModal(true);
-    setDiagnosticResult(null);
-    try {
-      const res = await runDSPDiagnostics();
-      setDiagnosticResult(res);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsRunningDiag(false);
-    }
-  };
-
-  // Initialize Zustand state from local / chrome storage
+  // Initialize store state
   useEffect(() => {
     initStore();
   }, [initStore]);
 
-  // Audio level and spectrum receivers
+  // Audio level and AI class receiver for mini visualizer
   useEffect(() => {
-    // Check if in standard Chrome Extension context
     const hasChromeRuntime = typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage;
     
     if (!hasChromeRuntime) {
-      // Mock Data Generator for standard browser preview/development
       if (!isEnabled) {
-        setLevels(new Array(8).fill(0));
-        setSpectrum(new Array(128).fill(0));
+        setLevels(new Array(10).fill(0));
+        setDetectedAIClass('flat');
         return;
       }
 
       const mockInterval = setInterval(() => {
-        // Generate random activity profiles
-        const mockLevels = new Array(8).fill(0).map((_, idx) => {
-          const base = idx === 3 ? 0.35 : 0.2; // subwoofer slightly more dynamic
-          const rnd = Math.random() * 0.45;
-          return base + rnd;
+        const mockLevels = new Array(10).fill(0).map((_, idx) => {
+          const base = idx === 3 ? 0.3 : 0.15;
+          return base + Math.random() * 0.45;
         });
-
-        const mockSpectrum = new Array(128).fill(0).map((_, idx) => {
-          // exponential decay towards highs with random bumps
-          const factor = Math.max(0, 180 - idx * 2.5);
-          return Math.round(factor * (0.6 + Math.random() * 0.4));
-        });
-
         setLevels(mockLevels);
-        setSpectrum(mockSpectrum);
-      }, 50);
+
+        const classes = ['dialogue', 'music', 'action', 'ambient'];
+        const classIdx = Math.floor(Date.now() / 4000) % 4;
+        setDetectedAIClass(isAIEnabled ? classes[classIdx] : 'flat');
+      }, 80);
 
       return () => clearInterval(mockInterval);
     }
 
-    // Real listener for extension processing messages
     const messageListener = (message: any) => {
       if (message.type === 'LEVEL_METERS_UI') {
         setLevels(message.levels);
-      } else if (message.type === 'SPECTRUM_DATA_UI') {
-        setSpectrum(message.spectrum);
+        if (message.aiClass) {
+          setDetectedAIClass(message.aiClass);
+        }
       }
     };
 
@@ -115,415 +69,148 @@ const App: React.FC = () => {
     return () => {
       chrome.runtime.onMessage.removeListener(messageListener);
     };
-  }, [isEnabled]);
+  }, [isEnabled, isAIEnabled]);
 
-  // File Upload parsing logic
-  const handleCustomIRUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Check size limit (< 4MB to prevent storage bloat)
-    if (file.size > 4 * 1024 * 1024) {
-      alert("Impulse response file too large. Please select a WAV file under 4MB.");
-      return;
+  const launchDashboard = () => {
+    if (typeof chrome !== 'undefined' && chrome.tabs) {
+      chrome.tabs.create({ url: chrome.runtime.getURL('src/dashboard/index.html') });
+    } else {
+      alert("Opening 3D Dashboard Control Center (Local Simulation Mode)");
     }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const base64Data = result.split(',')[1]; // Split data url scheme header
-      uploadCustomIR(file.name, base64Data);
-    };
-    reader.onerror = () => {
-      alert("Failed to read the WAV file.");
-    };
-    reader.readAsDataURL(file);
   };
 
+  const channelNames = ["L", "R", "C", "LFE", "Ls", "Rs", "Lb", "Rb", "Lh", "Rh"];
+
   return (
-    <div className="w-[390px] h-[600px] bg-studio-950 flex flex-col p-4 select-none relative font-sans text-slate-100 overflow-hidden">
+    <div className="w-[360px] h-[480px] bg-[#06060c] flex flex-col p-4 select-none relative font-sans text-slate-200 overflow-hidden">
       
       {/* 1. HEADER TITLE BAR */}
-      <header className="flex items-center justify-between pb-3 border-b border-white/5 z-10">
+      <header className="flex items-center justify-between pb-3 border-b border-slate-900 z-10">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-studio-glow to-studio-neon flex items-center justify-center shadow-glow-cyan">
-            <Radio className="w-5 h-5 text-studio-950 stroke-[2.5]" />
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-amber-400 to-amber-600 flex items-center justify-center shadow-lg">
+            <Radio className="w-5 h-5 text-slate-950 stroke-[2.5]" />
           </div>
           <div>
-            <h1 className="text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
-              Spatial Cinema
+            <h1 className="text-xs font-bold uppercase tracking-wider bg-gradient-to-r from-amber-300 to-slate-300 bg-clip-text text-transparent">
+              Aether Spatial
             </h1>
-            <p className="text-[9px] text-slate-400 font-mono max-w-[180px] truncate" title={activeTabTitle}>
-              {activeTabTitle}
-            </p>
+            <div className="flex items-center gap-1 mt-0.5">
+              <p className="text-[9px] text-slate-400 font-mono max-w-[110px] truncate" title={activeTabTitle}>
+                {activeTabTitle || 'Inactive tab'}
+              </p>
+              {activeTabTitle && activeTabTitle !== 'No active audio tab' && (
+                <button
+                  onClick={disconnectCapture}
+                  className="text-[8px] text-rose-500 hover:text-rose-400 underline font-semibold transition-colors focus:outline-none"
+                  title="Stop capturing and release tab audio"
+                >
+                  (Disconnect)
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Master Power Toggle Button */}
         <button
           onClick={toggleEnabled}
-          className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all duration-300 flex items-center gap-1.5 border ${
+          className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-1.5 border ${
             isEnabled 
-              ? 'bg-studio-glow text-studio-950 border-studio-glow shadow-glow-cyan font-extrabold'
-              : 'bg-transparent text-slate-400 border-white/20 hover:text-white hover:border-white/40'
+              ? 'bg-amber-400 text-slate-950 border-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.3)]'
+              : 'bg-transparent text-slate-400 border-slate-800 hover:text-white hover:border-slate-700'
           }`}
         >
-          <span className={`w-1.5 h-1.5 rounded-full ${isEnabled ? 'bg-studio-950 animate-ping' : 'bg-slate-500'}`} />
+          <span className={`w-1.5 h-1.5 rounded-full ${isEnabled ? 'bg-slate-950 animate-pulse' : 'bg-slate-500'}`} />
           {isEnabled ? 'ACTIVE' : 'BYPASS'}
         </button>
       </header>
 
-      {/* 2. THREE.JS 3D SPEAKER GRAPH */}
-      <section className="my-3">
-        <SpeakerVisualizer levels={levels} isEnabled={isEnabled} />
-      </section>
+      {/* 2. CORE INTERFACE CONTAINER */}
+      <div className="flex-1 flex flex-col justify-between py-3 overflow-hidden">
 
-      {/* 3. TABS SELECTOR BAR */}
-      <nav className="flex gap-1.5 p-0.5 rounded-lg bg-studio-900 border border-white/5 text-[10px] uppercase font-bold tracking-widest mb-3">
-        <button
-          onClick={() => setActiveTab('dashboard')}
-          className={`flex-1 py-1.5 rounded-md flex items-center justify-center gap-1 transition-all ${
-            activeTab === 'dashboard'
-              ? 'bg-studio-800 text-studio-glow shadow-sm'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Tv className="w-3.5 h-3.5" />
-          Dashboard
-        </button>
-        <button
-          onClick={() => setActiveTab('profiles')}
-          className={`flex-1 py-1.5 rounded-md flex items-center justify-center gap-1 transition-all ${
-            activeTab === 'profiles'
-              ? 'bg-studio-800 text-studio-glow shadow-sm'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Compass className="w-3.5 h-3.5" />
-          Profiles
-        </button>
-        <button
-          onClick={() => setActiveTab('enhancers')}
-          className={`flex-1 py-1.5 rounded-md flex items-center justify-center gap-1 transition-all ${
-            activeTab === 'enhancers'
-              ? 'bg-studio-800 text-studio-glow shadow-sm'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          Enhancers
-        </button>
-      </nav>
-
-      {/* 4. TAB CONTENTS */}
-      <main className="flex-grow glass-panel rounded-xl p-3 border border-white/5 overflow-hidden flex flex-col justify-center min-h-[160px] max-h-[160px] mb-3">
-        
-        {/* DASHBOARD TAB */}
-        {activeTab === 'dashboard' && (
-          <div className="flex flex-col gap-2.5">
-            {/* Preset Selector */}
-            <div className="flex items-center justify-between">
-              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400 flex items-center gap-1">
-                <Settings className="w-3.5 h-3.5" /> Preset Mode
-              </label>
-              <select
-                value={preset}
-                onChange={(e) => applyPreset(e.target.value)}
-                className="bg-studio-900 border border-white/10 rounded-md px-2 py-1 text-[10px] font-semibold text-studio-glow focus:outline-none focus:border-studio-glow max-w-[150px]"
-              >
-                {Object.entries(PRESETS).map(([key, def]) => (
-                  <option key={key} value={key} className="bg-studio-950 text-slate-200">
-                    {def.name}
-                  </option>
-                ))}
-                <option value="custom" disabled className="bg-studio-950 text-slate-500">Custom Tuned</option>
-              </select>
-            </div>
-
-            {/* Master Volume Slider */}
-            <div className="flex flex-col gap-1">
-              <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                <span className="flex items-center gap-1"><Volume2 className="w-3.5 h-3.5" /> Master Gain</span>
-                <span className="text-studio-glow">{Math.round(volume * 100)}%</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="1.0"
-                step="0.05"
-                value={volume}
-                onChange={(e) => setSetting('volume', parseFloat(e.target.value))}
-              />
-            </div>
-
-            {/* Surround Field Intensity Slider */}
-            <div className="flex flex-col gap-1">
-              <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                <span>Surround Expansion</span>
-                <span className="text-studio-glow">{Math.round(surroundIntensity * 100)}%</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="1.0"
-                step="0.05"
-                value={surroundIntensity}
-                onChange={(e) => setSetting('surroundIntensity', parseFloat(e.target.value))}
-              />
-            </div>
+        {/* Mini VU Grid */}
+        <div className="p-3 rounded-xl bg-slate-950 border border-slate-900">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+              <Cpu className="w-3 h-3 text-amber-400" />
+              Discrete VU Meters
+            </span>
+            <span className="text-[9px] font-mono font-bold text-amber-400 px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 uppercase">
+              AI: {detectedAIClass}
+            </span>
           </div>
-        )}
 
-        {/* HRTF PROFILES TAB */}
-        {activeTab === 'profiles' && (
-          <div className="flex flex-col gap-2.5 h-full justify-between">
-            {/* Built-in HRTF Profiles */}
-            <div className="flex items-center justify-between">
-              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400 flex items-center gap-1">
-                HRTF Model
-              </label>
-              <div className="flex gap-1">
-                {['sadie', 'kemar', 'cipic'].map((prof) => (
-                  <button
-                    key={prof}
-                    disabled={!!customIRName}
-                    onClick={() => setSetting('hrtfProfile', prof)}
-                    className={`px-2 py-0.5 rounded text-[8px] font-extrabold uppercase border ${
-                      customIRName 
-                        ? 'opacity-40 border-white/5 bg-studio-950 text-slate-600'
-                        : hrtfProfile === prof
-                          ? 'border-studio-glow text-studio-glow bg-studio-glow/10'
-                          : 'border-white/10 text-slate-400 hover:text-slate-200 bg-studio-900'
-                    }`}
-                  >
-                    {prof === 'sadie' ? 'Sadie II' : prof === 'kemar' ? 'KEMAR' : 'CIPIC'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Profile description */}
-            <div className="text-[9px] leading-relaxed text-slate-400 bg-studio-900/50 p-1.5 rounded border border-white/5 h-[40px] flex items-center gap-1">
-              <Info className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-              <span>
-                {customIRName 
-                  ? `Active custom IR: ${customIRName}`
-                  : hrtfProfile === 'sadie' 
-                    ? "SADIE II (Cinema) - Acoustically tuned for movie acoustics and deep spatial low-ends."
-                    : hrtfProfile === 'kemar'
-                      ? "MIT KEMAR (Reference) - Natural frequency response, perfect for hi-fi stereo audio upmixing."
-                      : "CIPIC (Gaming) - Accentuated reflections for aggressive angular FPS footsteps cues."
-                }
-              </span>
-            </div>
-
-            {/* Custom WAV IR File Uploader & Diagnostics */}
-            <div className="flex items-center justify-between border-t border-white/5 pt-2">
-              <button
-                onClick={handleRunDiagnostics}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-studio-900 border border-white/10 hover:border-studio-glow/30 hover:text-studio-glow text-[9px] font-bold uppercase tracking-wider text-slate-300 transition-all duration-150"
-              >
-                <Activity className="w-3.5 h-3.5 text-studio-glow" />
-                Test Engine
-              </button>
-
-              {customIRName ? (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[9px] font-mono text-studio-glow truncate max-w-[90px]">{customIRName}</span>
-                  <button
-                    onClick={clearCustomIR}
-                    className="p-1 rounded bg-red-950/45 border border-red-800 text-red-400 hover:bg-red-900 hover:text-white transition-colors"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
+          <div className="grid grid-cols-10 gap-1 items-end h-[50px]">
+            {levels.map((lvl, i) => {
+              const heightPercent = Math.min(100, Math.floor(lvl * 100));
+              return (
+                <div key={i} className="h-full flex flex-col justify-end items-center">
+                  <div className="w-full bg-slate-900/60 rounded-t overflow-hidden flex flex-col justify-end h-full">
+                    <div 
+                      className="w-full bg-gradient-to-t from-amber-600 to-amber-300 transition-all duration-75"
+                      style={{ height: `${heightPercent}%` }}
+                    />
+                  </div>
+                  <span className="text-[6.5px] text-slate-500 font-mono mt-0.5 scale-90">{channelNames[i]}</span>
                 </div>
-              ) : (
-                <label className="flex items-center gap-1 px-2.5 py-1 rounded bg-studio-900 border border-white/10 hover:border-white/30 text-[9px] font-bold uppercase tracking-wider text-slate-300 cursor-pointer transition-all">
-                  <UploadCloud className="w-3.5 h-3.5" />
-                  Load .WAV
-                  <input
-                    type="file"
-                    accept=".wav"
-                    onChange={handleCustomIRUpload}
-                    className="hidden"
-                  />
-                </label>
-              )}
-            </div>
+              );
+            })}
           </div>
-        )}
+        </div>
 
-        {/* DSP ENHANCERS TAB */}
-        {activeTab === 'enhancers' && (
-          <div className="flex flex-col gap-2">
-            
-            {/* Grid for Boost Sliders */}
-            <div className="grid grid-cols-2 gap-3 mb-1">
-              <div className="flex flex-col gap-1">
-                <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-                  <span>Dialogue Focus</span>
-                  <span className="text-studio-glow">{Math.round(dialogueEnhance * 100)}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="1.0"
-                  step="0.05"
-                  value={dialogueEnhance}
-                  onChange={(e) => setSetting('dialogueEnhance', parseFloat(e.target.value))}
-                />
-              </div>
+        {/* Preset Selector */}
+        <div className="space-y-1.5">
+          <label className="text-[9px] uppercase tracking-wider text-slate-400 font-bold flex items-center gap-1">
+            <Layers className="w-3 h-3 text-amber-400" />
+            Quick Preset
+          </label>
+          <select
+            value={preset}
+            onChange={(e) => applyPreset(e.target.value)}
+            className="w-full bg-slate-950 border border-slate-900 rounded-xl px-3 py-2 text-xs text-slate-300 font-semibold focus:outline-none focus:border-amber-500/50"
+          >
+            {Object.entries(PRESETS).map(([key, def]) => (
+              <option key={key} value={key}>{def.name}</option>
+            ))}
+          </select>
+        </div>
 
-              <div className="flex flex-col gap-1">
-                <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-                  <span>Sub-Harmonic Bass</span>
-                  <span className="text-studio-glow">{Math.round(bassBoost * 100)}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="1.0"
-                  step="0.05"
-                  value={bassBoost}
-                  onChange={(e) => setSetting('bassBoost', parseFloat(e.target.value))}
-                />
-              </div>
-            </div>
+        {/* Headphone Profiles */}
+        <div className="space-y-1.5">
+          <label className="text-[9px] uppercase tracking-wider text-slate-400 font-bold flex items-center gap-1">
+            <Ear className="w-3 h-3 text-amber-400" />
+            Headphone Correction
+          </label>
+          <select
+            value={headphoneProfile}
+            onChange={(e) => setSetting('headphoneProfile', e.target.value as any)}
+            className="w-full bg-slate-950 border border-slate-900 rounded-xl px-3 py-2 text-xs text-slate-300 font-semibold focus:outline-none focus:border-amber-500/50"
+          >
+            <option value="none">Bypass (Flat Calibration)</option>
+            <option value="open_back">Open-Back Headphone Boost</option>
+            <option value="closed_back">Closed-Back Reference Damping</option>
+            <option value="gaming_headset">Gaming Headset Equalization</option>
+            <option value="earbuds">In-Ear Monitors (IEMs)</option>
+          </select>
+        </div>
 
-            {/* Room reflections slider */}
-            <div className="flex flex-col gap-1 mb-1">
-              <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-                <span>Room reflections (Reverb size)</span>
-                <span className="text-studio-glow">{Math.round(roomReflections * 100)}%</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="1.0"
-                step="0.05"
-                value={roomReflections}
-                onChange={(e) => setSetting('roomReflections', parseFloat(e.target.value))}
-              />
-            </div>
+        {/* Dashboard Launcher Button */}
+        <button
+          onClick={launchDashboard}
+          className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs uppercase tracking-widest shadow-[0_4px_15px_rgba(245,158,11,0.25)] flex items-center justify-center gap-2 hover:shadow-[0_4px_20px_rgba(245,158,11,0.35)] transition-all duration-300 mt-2"
+        >
+          <span>Launch 3D Control Center</span>
+          <ExternalLink className="w-3.5 h-3.5 stroke-[2.5]" />
+        </button>
 
-            {/* Toggles */}
-            <div className="flex justify-between gap-2 border-t border-white/5 pt-1.5">
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={crosstalkCancellation}
-                  onChange={(e) => setSetting('crosstalkCancellation', e.target.checked)}
-                  className="rounded border-white/10 bg-studio-900 text-studio-glow focus:ring-0 w-3 h-3"
-                />
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Cross-talk Cut</span>
-              </label>
+      </div>
 
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={dynamicEQ}
-                  onChange={(e) => setSetting('dynamicEQ', e.target.checked)}
-                  className="rounded border-white/10 bg-studio-900 text-studio-glow focus:ring-0 w-3 h-3"
-                />
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Equal Loudness</span>
-              </label>
-            </div>
-          </div>
-        )}
-      </main>
-
-      {/* 5. VU METERS & CANVASES */}
-      <footer className="z-10 mt-auto">
-        <AudioVisualizer spectrum={spectrum} levels={levels} isEnabled={isEnabled} />
+      {/* FOOTER STATS */}
+      <footer className="flex items-center justify-between pt-2 border-t border-slate-900/60 text-[8px] font-mono text-slate-500">
+        <span>AETHER ENGINE V3.0</span>
+        <span>LATENCY: BINAURAL DIRECT</span>
       </footer>
 
-      {/* 6. DIAGNOSTICS MODAL OVERLAY */}
-      {showDiagModal && (
-        <div className="absolute inset-0 bg-studio-950/95 backdrop-blur-md z-50 flex flex-col p-4 transition-all duration-300">
-          <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-4">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-studio-glow flex items-center gap-1.5 font-mono">
-              <Activity className="w-4 h-4 text-studio-glow" /> System Diagnostics
-            </h2>
-            <button 
-              onClick={() => setShowDiagModal(false)}
-              className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="flex-grow flex flex-col justify-center gap-3">
-            {isRunningDiag ? (
-              <div className="flex flex-col items-center justify-center gap-3 py-10">
-                <div className="w-8 h-8 rounded-full border-2 border-studio-glow border-t-transparent animate-spin" />
-                <span className="text-[9px] uppercase font-mono tracking-widest text-slate-400">Benchmarking Offline rendering context...</span>
-              </div>
-            ) : diagnosticResult ? (
-              <div className="flex flex-col gap-2.5">
-                {/* Latency card */}
-                <div className="p-2.5 rounded-lg bg-studio-900/80 border border-white/5 flex items-center justify-between">
-                  <div>
-                    <h3 className="text-[9px] uppercase font-bold tracking-wider text-slate-400">Processing Latency</h3>
-                    <p className="text-base font-bold text-white font-mono">{diagnosticResult.estimatedLatencyMs.toFixed(2)} ms</p>
-                  </div>
-                  <span className="text-[8px] font-bold uppercase tracking-widest text-emerald-400 px-2 py-0.5 bg-emerald-950/30 border border-emerald-800/30 rounded">
-                    &lt;10ms (Stable)
-                  </span>
-                </div>
-
-                {/* CPU card */}
-                <div className="p-2.5 rounded-lg bg-studio-900/80 border border-white/5 flex items-center justify-between">
-                  <div>
-                    <h3 className="text-[9px] uppercase font-bold tracking-wider text-slate-400">Simulated CPU Load</h3>
-                    <p className="text-base font-bold text-white font-mono">{diagnosticResult.cpuLoadPercent.toFixed(2)}%</p>
-                  </div>
-                  <span className="text-[8px] font-bold uppercase tracking-widest text-emerald-400 px-2 py-0.5 bg-emerald-950/30 border border-emerald-800/30 rounded">
-                    ULTRA-LOW
-                  </span>
-                </div>
-
-                {/* Clipping card */}
-                <div className="p-2.5 rounded-lg bg-studio-900/80 border border-white/5 flex items-center justify-between">
-                  <div>
-                    <h3 className="text-[9px] uppercase font-bold tracking-wider text-slate-400">DSP Amplitude Limit</h3>
-                    <p className="text-base font-bold text-white font-mono">{Math.round(diagnosticResult.maxAmplitude * 100)}% Peak</p>
-                  </div>
-                  <span className={`text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border ${
-                    diagnosticResult.clippingDetected
-                      ? 'text-red-400 bg-red-950/30 border-red-800/30'
-                      : 'text-emerald-400 bg-emerald-950/30 border-emerald-800/30'
-                  }`}>
-                    {diagnosticResult.clippingDetected ? 'CLIPPING' : 'LIMITER PASS'}
-                  </span>
-                </div>
-
-                {/* API Checklist */}
-                <div className="p-2.5 rounded-lg bg-studio-900/50 border border-white/5 flex flex-col gap-1.5 text-[9px] font-mono uppercase tracking-wider text-slate-400">
-                  <div className="flex justify-between items-center">
-                    <span>AudioWorklet Engine</span>
-                    {diagnosticResult.apiSupport.audioWorklet ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <AlertCircle className="w-3.5 h-3.5 text-red-400" />}
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>WASM Acceleration</span>
-                    {diagnosticResult.apiSupport.wasm ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <AlertCircle className="w-3.5 h-3.5 text-slate-500" />}
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>chrome.tabCapture API</span>
-                    {diagnosticResult.apiSupport.tabCapture ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <AlertCircle className="w-3.5 h-3.5 text-yellow-500" />}
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          </div>
-          
-          <button
-            onClick={() => setShowDiagModal(false)}
-            className="w-full py-2.5 mt-auto rounded-lg bg-gradient-to-r from-studio-glow to-studio-neon hover:opacity-90 text-studio-950 font-bold uppercase tracking-widest text-[10px] shadow-glow-cyan transition-all"
-          >
-            Close Diagnostics
-          </button>
-        </div>
-      )}
     </div>
   );
 };

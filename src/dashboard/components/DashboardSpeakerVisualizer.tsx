@@ -6,7 +6,7 @@ interface SpeakerVisualizerProps {
   isEnabled: boolean;
 }
 
-export const SpeakerVisualizer: React.FC<SpeakerVisualizerProps> = ({ levels, isEnabled }) => {
+export const DashboardSpeakerVisualizer: React.FC<SpeakerVisualizerProps> = ({ levels, isEnabled }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const levelsRef = useRef<number[]>(levels);
 
@@ -17,86 +17,86 @@ export const SpeakerVisualizer: React.FC<SpeakerVisualizerProps> = ({ levels, is
   useEffect(() => {
     if (!mountRef.current) return;
 
-    const width = mountRef.current.clientWidth || 350;
-    const height = 180;
+    const width = mountRef.current.clientWidth || 600;
+    const height = 300; // Increased height for fullscreen dashboard layout
 
     // 1. Create Scene & Camera
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x05050a, 0.07);
+    scene.fog = new THREE.FogExp2(0x040409, 0.06);
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    camera.position.set(0, 5, 8.5);
-    camera.lookAt(0, 0, 0);
+    camera.position.set(0, 4.5, 8.0);
+    camera.lookAt(0, 0.2, 0);
 
-    // 2. Create Renderer
+    // 2. Create WebGL2 Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     mountRef.current.appendChild(renderer.domElement);
 
-    // 3. Add Lighting
-    const ambientLight = new THREE.AmbientLight(0x0f1123, 1.8);
+    // 3. Add Golden & Amber Lighting
+    const ambientLight = new THREE.AmbientLight(0x111326, 2.2);
     scene.add(ambientLight);
 
-    const roomLightL = new THREE.PointLight(0x00f2fe, 1.0, 12);
-    roomLightL.position.set(-4, 2.5, -2);
+    const roomLightL = new THREE.PointLight(0xd4af37, 1.2, 14); // Champagne Gold
+    roomLightL.position.set(-5, 2.5, -2);
     scene.add(roomLightL);
 
-    const roomLightR = new THREE.PointLight(0xff007a, 1.0, 12);
-    roomLightR.position.set(4, 2.5, -2);
+    const roomLightR = new THREE.PointLight(0xe5a93b, 1.2, 14); // Warm Amber
+    roomLightR.position.set(5, 2.5, -2);
     scene.add(roomLightR);
 
     // 4. Create Wireframe Room Boundaries
-    const roomGeo = new THREE.BoxGeometry(11, 5, 11);
+    const roomGeo = new THREE.BoxGeometry(11, 4.5, 11);
     const roomWireMat = new THREE.MeshBasicMaterial({
-      color: 0x1e2246,
+      color: 0x3d3525, // Soft metallic gold wireframe
       wireframe: true,
       transparent: true,
-      opacity: 0.18
+      opacity: 0.15
     });
     const roomMesh = new THREE.Mesh(roomGeo, roomWireMat);
-    roomMesh.position.y = 1.5;
+    roomMesh.position.y = 1.25;
     scene.add(roomMesh);
 
-    // Floor Grid Helper
-    const gridHelper = new THREE.GridHelper(11, 11, 0x2a2c4e, 0x111327);
-    gridHelper.position.y = -1;
+    // Fine Ground Grid Helper
+    const gridHelper = new THREE.GridHelper(11, 15, 0x2b2b3a, 0x11111f);
+    gridHelper.position.y = -1.0;
     scene.add(gridHelper);
 
     // 5. Create Center Head & Headphones
     const headGroup = new THREE.Group();
 
     // Head Sphere
-    const headGeo = new THREE.SphereGeometry(0.75, 32, 32);
+    const headGeo = new THREE.SphereGeometry(0.72, 32, 32);
     const headMat = new THREE.MeshStandardMaterial({
-      color: 0x0c0d1b,
-      roughness: 0.25,
-      metalness: 0.85,
+      color: 0x0a0a14,
+      roughness: 0.35,
+      metalness: 0.9,
     });
     const headMesh = new THREE.Mesh(headGeo, headMat);
     headGroup.add(headMesh);
 
     // Headphone Band
-    const bandGeo = new THREE.TorusGeometry(0.9, 0.07, 16, 64, Math.PI);
+    const bandGeo = new THREE.TorusGeometry(0.85, 0.06, 16, 64, Math.PI);
     const headphoneMat = new THREE.MeshStandardMaterial({
-      color: 0x25284a,
-      roughness: 0.35,
-      metalness: 0.75
+      color: 0x1c1d35,
+      roughness: 0.4,
+      metalness: 0.8
     });
     const bandMesh = new THREE.Mesh(bandGeo, headphoneMat);
     bandMesh.rotation.x = Math.PI / 2;
-    bandMesh.position.y = 0.15;
+    bandMesh.position.y = 0.12;
     headGroup.add(bandMesh);
 
-    // Headphone Ear Cups
-    const cupGeo = new THREE.CylinderGeometry(0.25, 0.25, 0.18, 32);
+    // Headphone Cups
+    const cupGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.16, 32);
     const leftCup = new THREE.Mesh(cupGeo, headphoneMat);
     leftCup.rotation.z = Math.PI / 2;
-    leftCup.position.set(-0.8, 0, 0);
+    leftCup.position.set(-0.76, 0, 0);
     headGroup.add(leftCup);
 
     const rightCup = leftCup.clone();
-    rightCup.position.x = 0.8;
+    rightCup.position.x = 0.76;
     headGroup.add(rightCup);
 
     scene.add(headGroup);
@@ -104,24 +104,25 @@ export const SpeakerVisualizer: React.FC<SpeakerVisualizerProps> = ({ levels, is
     // 6. Define 10 Speakers (7.1 Surround + 2 Heights)
     interface SpeakerInfo {
       name: string;
-      angle: number; // degrees
+      angle: number;
       radius: number;
       yPos: number;
       color: number;
       index: number;
     }
 
+    // Refined Gold, Sand, and Amber color mappings (non-RGB)
     const speakerConfigs: SpeakerInfo[] = [
-      { name: "C", angle: 0, radius: 3.5, yPos: 0, color: 0x00f2fe, index: 2 },
-      { name: "L", angle: -30, radius: 3.5, yPos: 0, color: 0x9b51e0, index: 0 },
-      { name: "R", angle: 30, radius: 3.5, yPos: 0, color: 0x9b51e0, index: 1 },
-      { name: "Ls", angle: -110, radius: 3.2, yPos: 0.1, color: 0xff007a, index: 4 },
-      { name: "Rs", angle: 110, radius: 3.2, yPos: 0.1, color: 0xff007a, index: 5 },
-      { name: "Lb", angle: -150, radius: 3.0, yPos: 0.2, color: 0xff007a, index: 6 },
-      { name: "Rb", angle: 150, radius: 3.0, yPos: 0.2, color: 0xff007a, index: 7 },
-      { name: "Lh", angle: -45, radius: 2.8, yPos: 1.6, color: 0xffaa00, index: 8 }, // Elevated Height L
-      { name: "Rh", angle: 45, radius: 2.8, yPos: 1.6, color: 0xffaa00, index: 9 }, // Elevated Height R
-      { name: "Sub", angle: 0, radius: 2.2, yPos: -0.6, color: 0x00ff88, index: 3 }
+      { name: "C", angle: 0, radius: 3.5, yPos: 0, color: 0xffdf7a, index: 2 }, // Warm Yellow Gold
+      { name: "L", angle: -30, radius: 3.5, yPos: 0, color: 0xd4af37, index: 0 }, // Champagne Gold
+      { name: "R", angle: 30, radius: 3.5, yPos: 0, color: 0xd4af37, index: 1 },
+      { name: "Ls", angle: -110, radius: 3.2, yPos: 0.1, color: 0xe5973b, index: 4 }, // Warm Orange
+      { name: "Rs", angle: 110, radius: 3.2, yPos: 0.1, color: 0xe5973b, index: 5 },
+      { name: "Lb", angle: -150, radius: 3.0, yPos: 0.2, color: 0xe5973b, index: 6 },
+      { name: "Rb", angle: 150, radius: 3.0, yPos: 0.2, color: 0xe5973b, index: 7 },
+      { name: "Lh", angle: -45, radius: 2.8, yPos: 1.6, color: 0xffaa00, index: 8 }, // Amber Height L
+      { name: "Rh", angle: 45, radius: 2.8, yPos: 1.6, color: 0xffaa00, index: 9 }, // Amber Height R
+      { name: "Sub", angle: 0, radius: 2.2, yPos: -0.6, color: 0xc4b597, index: 3 } // Soft Sand LFE
     ];
 
     const speakerMeshes: THREE.Mesh[] = [];
@@ -133,60 +134,57 @@ export const SpeakerVisualizer: React.FC<SpeakerVisualizerProps> = ({ levels, is
       const x = config.radius * Math.sin(rad);
       const z = -config.radius * Math.cos(rad);
 
-      // Speaker Box Geometry
-      let boxGeo: THREE.BufferGeometry = new THREE.BoxGeometry(0.32, 0.42, 0.32);
+      let boxGeo: THREE.BufferGeometry = new THREE.BoxGeometry(0.3, 0.4, 0.3);
       if (config.name === "Sub") {
-        boxGeo = new THREE.BoxGeometry(0.48, 0.48, 0.48);
+        boxGeo = new THREE.BoxGeometry(0.44, 0.44, 0.44);
       } else if (config.name === "Lh" || config.name === "Rh") {
-        boxGeo = new THREE.SphereGeometry(0.2, 16, 16); // Heights are spheres
+        boxGeo = new THREE.SphereGeometry(0.18, 16, 16);
       }
 
       const boxMat = new THREE.MeshStandardMaterial({
-        color: 0x14152b,
-        roughness: 0.35,
-        metalness: 0.88,
+        color: 0x10111f,
+        roughness: 0.4,
+        metalness: 0.9,
       });
 
       const mesh = new THREE.Mesh(boxGeo, boxMat);
       mesh.position.set(x, config.yPos, z);
       
-      // Face listener
       if (config.name !== "Sub") {
         mesh.lookAt(0, config.yPos * 0.5, 0);
       }
       scene.add(mesh);
       speakerMeshes.push(mesh);
 
-      // Glowing Cone Ring
+      // Subtly Glowing Rings
       if (config.name !== "Lh" && config.name !== "Rh") {
-        const ringGeo = new THREE.RingGeometry(0.08, 0.14, 16);
+        const ringGeo = new THREE.RingGeometry(0.07, 0.12, 16);
         const ringMat = new THREE.MeshBasicMaterial({
           color: config.color,
           side: THREE.DoubleSide,
         });
         const ringMesh = new THREE.Mesh(ringGeo, ringMat);
-        ringMesh.position.set(0, 0, 0.17);
+        ringMesh.position.set(0, 0, 0.16);
         mesh.add(ringMesh);
         speakerGlows.push(ringMesh);
       } else {
-        // Height speakers direct glow material
         const glowMat = new THREE.MeshBasicMaterial({
           color: config.color,
           transparent: true,
-          opacity: 0.8
+          opacity: 0.75
         });
-        const glowSphere = new THREE.Mesh(new THREE.SphereGeometry(0.21, 16, 16), glowMat);
+        const glowSphere = new THREE.Mesh(new THREE.SphereGeometry(0.19, 16, 16), glowMat);
         mesh.add(glowSphere);
         speakerGlows.push(glowSphere);
       }
 
-      const pLight = new THREE.PointLight(config.color, 0, 2.5);
+      const pLight = new THREE.PointLight(config.color, 0, 2.2);
       pLight.position.set(x, config.yPos, z);
       scene.add(pLight);
       speakerLights.push(pLight);
     });
 
-    // 7. Particle emission system (sound particles traveling to head)
+    // 7. Sound particle flow physics
     interface SoundParticle {
       mesh: THREE.Mesh;
       speakerIdx: number;
@@ -195,7 +193,7 @@ export const SpeakerVisualizer: React.FC<SpeakerVisualizerProps> = ({ levels, is
     }
 
     const particles: SoundParticle[] = [];
-    const pGeo = new THREE.SphereGeometry(0.05, 8, 8);
+    const pGeo = new THREE.SphereGeometry(0.045, 8, 8);
 
     const emitParticle = (speakerIdx: number, level: number) => {
       const config = speakerConfigs[speakerIdx];
@@ -207,7 +205,7 @@ export const SpeakerVisualizer: React.FC<SpeakerVisualizerProps> = ({ levels, is
       const pMat = new THREE.MeshBasicMaterial({
         color: config.color,
         transparent: true,
-        opacity: Math.min(level * 1.5, 0.85)
+        opacity: Math.min(level * 1.4, 0.75)
       });
       const pMesh = new THREE.Mesh(pGeo, pMat);
       pMesh.position.set(x, config.yPos, z);
@@ -217,11 +215,11 @@ export const SpeakerVisualizer: React.FC<SpeakerVisualizerProps> = ({ levels, is
         mesh: pMesh,
         speakerIdx,
         progress: 0,
-        speed: 0.02 + Math.random() * 0.015
+        speed: 0.015 + Math.random() * 0.012
       });
     };
 
-    // 8. Animation Render Loop
+    // 8. Render & Animation Loop
     let animationId = 0;
     const clock = new THREE.Clock();
 
@@ -231,18 +229,17 @@ export const SpeakerVisualizer: React.FC<SpeakerVisualizerProps> = ({ levels, is
       const time = clock.getElapsedTime();
       const currentLevels = levelsRef.current;
 
-      // Subtle camera orbit rotation
-      const camRad = 8.0;
-      const camSpeed = 0.12;
+      // Restrained camera orbit speed
+      const camRad = 7.5;
+      const camSpeed = 0.07;
       camera.position.x = camRad * Math.sin(time * camSpeed);
       camera.position.z = camRad * Math.cos(time * camSpeed);
-      camera.position.y = 4.2 + Math.sin(time * 0.3) * 0.6;
-      camera.lookAt(0, 0.3, 0);
+      camera.position.y = 3.6 + Math.sin(time * 0.2) * 0.4;
+      camera.lookAt(0, 0.2, 0);
 
-      // Rotate head group to face camera angle slightly
       headGroup.rotation.y = -time * camSpeed + Math.PI;
 
-      // Animate speakers & emit particles
+      // Animate speakers
       speakerConfigs.forEach((config, idx) => {
         const mesh = speakerMeshes[idx];
         const light = speakerLights[idx];
@@ -252,20 +249,16 @@ export const SpeakerVisualizer: React.FC<SpeakerVisualizerProps> = ({ levels, is
           level = currentLevels[config.index];
         }
 
-        // Pulse scale
-        const scale = 1.0 + level * 0.4;
+        const scale = 1.0 + level * 0.3;
         mesh.scale.set(scale, scale, scale);
+        light.intensity = level * 2.8;
 
-        // Update glow light
-        light.intensity = level * 3.8;
-
-        // Emit sound flow particles dynamically
-        if (isEnabled && level > 0.22 && Math.random() < 0.18 && particles.length < 32) {
+        if (isEnabled && level > 0.25 && Math.random() < 0.15 && particles.length < 32) {
           emitParticle(idx, level);
         }
       });
 
-      // Animate flowing particles
+      // Animate particles
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
         p.progress += p.speed;
@@ -283,7 +276,6 @@ export const SpeakerVisualizer: React.FC<SpeakerVisualizerProps> = ({ levels, is
           const config = speakerConfigs[p.speakerIdx];
           const rad = (config.angle * Math.PI) / 180;
           
-          // Spherical interpolation towards head coordinates (0, 0.1, 0)
           const targetY = 0.1;
           const startX = config.radius * Math.sin(rad);
           const startZ = -config.radius * Math.cos(rad);
@@ -294,42 +286,32 @@ export const SpeakerVisualizer: React.FC<SpeakerVisualizerProps> = ({ levels, is
 
           p.mesh.position.set(curX, curY, curZ);
 
-          // Subtly shrink particle as it gets absorbed by head
-          const shrink = 1.0 - p.progress * 0.5;
+          const shrink = 1.0 - p.progress * 0.55;
           p.mesh.scale.set(shrink, shrink, shrink);
 
-          // Fade out
           const mat = p.mesh.material as THREE.MeshBasicMaterial;
-          mat.opacity = (1.0 - p.progress) * 0.8;
+          mat.opacity = (1.0 - p.progress) * 0.75;
         }
       }
 
-      // Pulse room bounding wireframe grid in sync with overall volume
+      // Pulse room wireframe and background glow in sync with levels
       if (isEnabled && currentLevels && currentLevels.length > 0) {
         const sumLevels = currentLevels.reduce((a, b) => a + b, 0) / currentLevels.length;
-        const colorPulse = new THREE.Color().setHSL(0.66 + sumLevels * 0.1, 0.8, 0.25 + sumLevels * 0.15);
+        const colorPulse = new THREE.Color().setHSL(0.12, 0.7, 0.18 + sumLevels * 0.12); // Amber gold pulse
         roomWireMat.color.copy(colorPulse);
-        roomWireMat.opacity = 0.12 + sumLevels * 0.22;
+        roomWireMat.opacity = 0.1 + sumLevels * 0.15;
 
-        // Breathe head mesh scale
-        const headScale = 1.0 + sumLevels * 0.08;
+        const headScale = 1.0 + sumLevels * 0.05;
         headGroup.scale.set(headScale, headScale, headScale);
 
-        // Flash background lights
-        roomLightL.intensity = 1.0 + sumLevels * 1.5;
-        roomLightR.intensity = 1.0 + sumLevels * 1.5;
+        roomLightL.intensity = 0.8 + sumLevels * 1.2;
+        roomLightR.intensity = 0.8 + sumLevels * 1.2;
       } else {
-        // Idle
-        roomWireMat.color.setHex(0x1e2246);
-        roomWireMat.opacity = 0.15;
+        roomWireMat.color.setHex(0x3d3525);
+        roomWireMat.opacity = 0.12;
         headGroup.scale.set(1, 1, 1);
-        roomLightL.intensity = 0.6;
-        roomLightR.intensity = 0.6;
-        bandMesh.scale.set(
-          1.0 + Math.sin(time * 2) * 0.015,
-          1.0 + Math.sin(time * 2) * 0.015,
-          1.0
-        );
+        roomLightL.intensity = 0.4;
+        roomLightR.intensity = 0.4;
       }
 
       renderer.render(scene, camera);
@@ -370,13 +352,13 @@ export const SpeakerVisualizer: React.FC<SpeakerVisualizerProps> = ({ levels, is
   }, [isEnabled]);
 
   return (
-    <div className="relative w-full h-[180px] rounded-xl overflow-hidden bg-studio-950/65 border border-white/5 flex items-center justify-center">
-      <div className="absolute inset-0 bg-gradient-to-t from-studio-glow/5 via-transparent to-transparent pointer-events-none" />
+    <div className="relative w-full h-[300px] rounded-2xl overflow-hidden bg-slate-950/80 border border-slate-900 flex items-center justify-center shadow-lg">
+      <div className="absolute inset-0 bg-gradient-to-t from-amber-500/5 via-transparent to-transparent pointer-events-none" />
       <div ref={mountRef} className="w-full h-full" />
-      <div className="absolute top-2 left-3 flex items-center gap-1.5 pointer-events-none">
-        <span className={`w-2 h-2 rounded-full ${isEnabled ? 'bg-studio-glow animate-pulse shadow-glow-cyan' : 'bg-slate-500'}`} />
+      <div className="absolute top-3 left-4 flex items-center gap-2 pointer-events-none">
+        <span className={`w-2.5 h-2.5 rounded-full ${isEnabled ? 'bg-amber-400 shadow-glow-cyan animate-pulse' : 'bg-slate-600'}`} />
         <span className="text-[10px] uppercase font-mono tracking-widest text-slate-400">
-          {isEnabled ? 'Aether 3D Engine Active (9.1)' : 'Bypass (Stereo)'}
+          {isEnabled ? 'Aether Spatial v3 — 3D Theater Reference Field' : 'Bypass Output (Normal Stereo)'}
         </span>
       </div>
     </div>

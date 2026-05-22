@@ -4,6 +4,7 @@ export default {
     "./src/popup/index.html",
     "./src/popup/**/*.{js,ts,jsx,tsx}",
     "./src/offscreen/**/*.{js,ts,html}",
+    "./src/dashboard/**/*.{js,ts,jsx,tsx,html}",
   ],
   theme: {
     extend: {

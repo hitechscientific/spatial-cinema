@@ -52,6 +52,20 @@ async function startCapture(streamId: string, settings: any) {
       sampleRate: 48000 // Standardize on 48kHz for high-fidelity HRTF matching
     });
 
+    audioContext.onstatechange = () => {
+      if (audioContext && audioContext.state === 'suspended') {
+        audioContext.resume().catch((e) => console.warn("Failed to auto-resume AudioContext:", e));
+      }
+    };
+
+    // Monitor track ended events (e.g. if the captured tab is refreshed or closed)
+    mediaStream.getAudioTracks().forEach((track) => {
+      track.onended = () => {
+        console.log("Captured tab stream track ended. Stopping spatializer.");
+        chrome.runtime.sendMessage({ type: 'STOP_SPATIALIZER' }).catch(() => {});
+      };
+    });
+
     // 3. Load AudioWorklet module
     // The processor is output to '/worklet/surround-processor.js' by Vite config
     const workletUrl = chrome.runtime.getURL('worklet/surround-processor.js');
@@ -94,13 +108,18 @@ async function startCapture(streamId: string, settings: any) {
       console.log('Running optimized TypeScript DSP pipeline.');
     }
 
-    // 8. Worklet message handling (routing channel levels back to UI)
+    // 8. Worklet message handling (routing channel levels and latency back to UI)
     workletNode.port.onmessage = (event) => {
       if (event.data.type === 'LEVEL_METERS') {
         chrome.runtime.sendMessage({
           type: 'LEVEL_METERS_UI',
           levels: event.data.levels,
-          outputLevel: event.data.outputLevel
+          outputLevel: event.data.outputLevel,
+          aiClass: event.data.aiClass,
+          performanceMs: event.data.performanceMs || 0,
+          dspLoadRatio: event.data.dspLoadRatio || 0,
+          underrunCount: event.data.underrunCount || 0,
+          gcPauseCount: event.data.gcPauseCount || 0
         }).catch(() => {}); // Suppress error if popup is closed
       }
     };
@@ -165,11 +184,11 @@ async function decodeAndLoadCustomIR(base64Wav: string) {
     const leftIR = audioBuffer.getChannelData(0);
     const rightIR = audioBuffer.numberOfChannels > 1 ? audioBuffer.getChannelData(1) : leftIR;
 
-    // Crop or pad to 32 taps for the circular FIR filter in the worklet
-    const tapsL = new Array(32).fill(0);
-    const tapsR = new Array(32).fill(0);
+    // Crop or pad to 256 taps for the partitioned convolver
+    const tapsL = new Array(256).fill(0);
+    const tapsR = new Array(256).fill(0);
 
-    for (let i = 0; i < 32; i++) {
+    for (let i = 0; i < 256; i++) {
       tapsL[i] = i < leftIR.length ? leftIR[i] : 0;
       tapsR[i] = i < rightIR.length ? rightIR[i] : 0;
     }
@@ -184,6 +203,8 @@ async function decodeAndLoadCustomIR(base64Wav: string) {
         Rs: { ipsi: tapsR, contra: tapsL, delay: 28, gain: 0.55 },
         Lb: { ipsi: tapsL, contra: tapsR, delay: 30, gain: 0.48 },
         Rb: { ipsi: tapsR, contra: tapsL, delay: 30, gain: 0.48 },
+        Lh: { ipsi: tapsL, contra: tapsR, delay: 6, gain: 0.65 },
+        Rh: { ipsi: tapsR, contra: tapsL, delay: 6, gain: 0.65 }
       }
     };
 

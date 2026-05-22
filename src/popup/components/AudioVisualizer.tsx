@@ -10,12 +10,12 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ spectrum, leve
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>(0);
 
-  // VU Channel names
-  const channels = ['L', 'R', 'C', 'SUB', 'SL', 'SR', 'BL', 'BR'];
+  // VU Channel names (10 channels for 9.1 heights)
+  const channels = ['L', 'R', 'C', 'SUB', 'SL', 'SR', 'BL', 'BR', 'LH', 'RH'];
   
   // Smooth peak decay tracking
-  const peaksRef = useRef<number[]>(new Array(8).fill(0));
-  const peakHoldFramesRef = useRef<number[]>(new Array(8).fill(0));
+  const peaksRef = useRef<number[]>(new Array(10).fill(0));
+  const peakHoldFramesRef = useRef<number[]>(new Array(10).fill(0));
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -97,7 +97,7 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ spectrum, leve
       const peaks = [...peaksRef.current];
       const holds = [...peakHoldFramesRef.current];
 
-      for (let i = 0; i < 8; i++) {
+      for (let i = 0; i < 10; i++) {
         const val = levels[i] || 0;
 
         // Peak holder logic
@@ -134,8 +134,8 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ spectrum, leve
         <div className="absolute inset-0 bg-gradient-to-t from-studio-900/10 via-transparent to-transparent pointer-events-none" />
       </div>
 
-      {/* 2. VU meters for the 8 surround channels */}
-      <div className="grid grid-cols-8 gap-2 bg-studio-800/40 p-2.5 rounded-lg border border-white/5">
+      {/* 2. VU meters for the 10 surround channels */}
+      <div className="grid grid-cols-10 gap-1 bg-studio-800/40 p-2 rounded-lg border border-white/5">
         {channels.map((ch, idx) => {
           const val = levels[idx] || 0;
           const peak = peaksRef.current[idx] || 0;
@@ -147,7 +147,7 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ spectrum, leve
           return (
             <div key={ch} className="flex flex-col items-center gap-1.5 h-[90px]">
               {/* VU Meter Slot */}
-              <div className="relative w-2 bg-studio-950 rounded-full flex-grow overflow-hidden border border-white/5">
+              <div className="relative w-1.5 bg-studio-950 rounded-full flex-grow overflow-hidden border border-white/5">
                 {/* Active Level fill */}
                 <div 
                   className="absolute bottom-0 left-0 right-0 rounded-full transition-all duration-75"
@@ -155,6 +155,8 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ spectrum, leve
                     height: heightPct,
                     background: ch === 'SUB' 
                       ? 'linear-gradient(to top, #00ff88, #00f2fe)' 
+                      : ch === 'LH' || ch === 'RH'
+                      ? 'linear-gradient(to top, #ffaa00, #ff007a)'
                       : 'linear-gradient(to top, #9b51e0, #ff007a, #00f2fe)'
                   }}
                 />
@@ -162,14 +164,14 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ spectrum, leve
                 {/* Peak Hold dot */}
                 {isEnabled && peak > 0.02 && (
                   <div 
-                    className="absolute left-0 right-0 h-1 bg-white shadow-sm transition-all duration-75 rounded-full"
-                    style={{ bottom: `calc(${peakBottomPct} - 2px)` }}
+                    className="absolute left-0 right-0 h-0.5 bg-white shadow-sm transition-all duration-75 rounded-full"
+                    style={{ bottom: `calc(${peakBottomPct} - 1px)` }}
                   />
                 )}
               </div>
 
               {/* Label */}
-              <span className="text-[8px] font-mono font-bold tracking-wider text-slate-400">
+              <span className="text-[7px] font-mono font-bold tracking-wider text-slate-400">
                 {ch}
               </span>
             </div>
