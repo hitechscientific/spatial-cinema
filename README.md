@@ -1,6 +1,6 @@
 # Cinematic Spatial Virtual Surround Sound Chrome Extension
 
-A production-grade, low-latency browser extension that transforms normal stereo headphones into a virtual 5.1/7.1 surround sound system. Built using Manifest V3, Web Audio API, AudioWorklets, Rust compiled to WebAssembly, Three.js, and Chrome's Offscreen Documents.
+A production-grade , low-latency browser extension that transforms normal stereo headphones into a virtual 5.1/7.1 surround sound system. Built using Manifest V3, Web Audio API, AudioWorklets, Rust compiled to WebAssembly, Three.js, and Chrome's Offscreen Documents.
 
 ---
 
