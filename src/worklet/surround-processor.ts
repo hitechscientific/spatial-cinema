@@ -552,6 +552,22 @@ class AISpatialAnalyzer {
     let zeroCrossings = 0;
     const len = inL.length;
 
+    // Temporal Flatness Proxy (Impulsiveness)
+    // Divide 128 samples into 4 sub-blocks of 32 samples each
+    let subRms = [0, 0, 0, 0];
+    for (let b = 0; b < 4; b++) {
+      let subSum = 0;
+      for (let j = 0; j < 32; j++) {
+        const val = (inL[b * 32 + j] + inR[b * 32 + j]) * 0.5;
+        subSum += val * val;
+      }
+      subRms[b] = Math.sqrt(subSum / 32.0);
+    }
+
+    const arithMean = (subRms[0] + subRms[1] + subRms[2] + subRms[3]) / 4;
+    const geomMean = Math.exp((Math.log(subRms[0] + 1e-6) + Math.log(subRms[1] + 1e-6) + Math.log(subRms[2] + 1e-6) + Math.log(subRms[3] + 1e-6)) / 4);
+    const temporalFlatness = arithMean > 1e-6 ? geomMean / arithMean : 1.0;
+
     for (let i = 0; i < len; i++) {
       const l = inL[i];
       const r = inR[i];
@@ -595,12 +611,14 @@ class AISpatialAnalyzer {
       vocalBoostDb = -1.5;
       bassBoostFactor = 1.45;
       widthFactor = 1.15;
-    } else if (correlation > 0.75 && frequencyProxy > 800 && frequencyProxy < 3500) {
+    } else if (correlation > 0.75 && frequencyProxy > 800 && frequencyProxy < 3500 && temporalFlatness < 0.85) {
+      // Speech / dialogue has high correlation and is dynamic/impulsive (low flatness)
       classification = "dialogue";
       vocalBoostDb = 5.0;
       bassBoostFactor = 0.7;
       widthFactor = 0.8;
-    } else if (correlation < 0.45) {
+    } else if (correlation < 0.45 || (temporalFlatness > 0.88 && correlation < 0.65)) {
+      // Music typically has wider spatial field and steady harmonic energy (high flatness)
       classification = "music";
       vocalBoostDb = 0;
       bassBoostFactor = 1.2;
@@ -747,6 +765,7 @@ class SurroundProcessor extends AudioWorkletProcessor {
   isUIActive = false;
   rollingElapsed = 0;
   voiceEnvelope = 0;
+  inputEnvelope = 0.15;
   dspCycleCount = 0;
 
   constructor() {
@@ -1502,6 +1521,22 @@ class SurroundProcessor extends AudioWorkletProcessor {
     const bassScalar = this.bassBoost * aiBassBoost;
     const subharmonicVolume = 0.22 * bassScalar;
 
+    // Calculate overall input envelope using a slow exponential moving average
+    let inputSum = 0;
+    for (let i = 0; i < bufferSize; i++) {
+      inputSum += Math.abs(inL[i] + inR[i]) * 0.5;
+    }
+    const averageInput = inputSum / bufferSize;
+    this.inputEnvelope = this.inputEnvelope * 0.98 + averageInput * 0.02;
+
+    // Automatic Gain Control (AGC) loudness stabilization
+    let agcGain = 1.0;
+    if (this.inputEnvelope > 1e-4) {
+      const targetGain = 0.12 / this.inputEnvelope;
+      agcGain = Math.max(0.63, Math.min(1.58, targetGain)); // range from -4dB to +4dB
+      agcGain = 1.0 + (agcGain - 1.0) * 0.45; // blend 45% of AGC correction
+    }
+
     // Process output loop for late-stage components
     for (let i = 0; i < bufferSize; i++) {
       let binL = accumRealL[i + 128];
@@ -1548,9 +1583,9 @@ class SurroundProcessor extends AudioWorkletProcessor {
       binL = binL / (1.0 + Math.abs(binL) * 0.12 * this.spectralWarmth);
       binR = binR / (1.0 + Math.abs(binR) * 0.12 * this.spectralWarmth);
 
-      // Master volume scale
-      binL *= this.volume;
-      binR *= this.volume;
+      // Master volume scale + AGC loudness compensation
+      binL *= this.volume * agcGain;
+      binR *= this.volume * agcGain;
 
       // Dynamic compression / peak Limiter
       this.limiter.process(binL, binR);

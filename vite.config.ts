@@ -49,7 +49,18 @@ export default defineConfig({
           return 'assets/[name]-[hash].js';
         },
         chunkFileNames: 'assets/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash].[ext]'
+        assetFileNames: 'assets/[name]-[hash].[ext]',
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('three')) {
+              return 'vendor-three';
+            }
+            if (id.includes('react') || id.includes('scheduler')) {
+              return 'vendor-react';
+            }
+            return 'vendor';
+          }
+        }
       }
     }
   }

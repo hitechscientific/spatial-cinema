@@ -216,3 +216,17 @@ Verify DSP engine accuracy, latency constraints, and performance inside the dash
    * Checks processing time: A healthy pipeline processes the buffer in under `5ms` (representing `<0.5%` simulated CPU load).
    * Verifies that the peak limiter was activated during hot transient bursts, keeping the peak output under `1.0` and preventing clipping distortion.
    * Confirms API compatibility for AudioWorklets, WebAssembly, tab capture, and offscreen documents.
+
+---
+
+## 🔮 Future Architectural Evolution Roadmap
+
+To transition the Aether Spatial Engine into a pro-audio grade framework, the following structural enhancements are planned:
+
+1. **Dynamic Modular DSP Graph Engine**: Evolve from a static linear pipeline into a patchable, modular dependency graph. Each DSP module (Biquad, Convolver, Sub-Bass, Limiter) will be hot-swappable, independently bypassable, and profiled at the node level to monitor microsecond CPU cost.
+2. **Multi-Resolution Partitioned Convolution**: Optimize the convolution reverb by partitioning impulse responses into multiple sizes (e.g., small 64-sample partitions for zero-latency early reflections, and larger 1024-sample partitions for the FDN reverb tail), lowering overhead without degrading acoustic reflections.
+3. **Continuous Angular HRTF Interpolation**: Move away from discrete profiles towards continuous 3D coordinate-based HRTF coefficient interpolation. This will allow virtual sound sources to move smoothly around the listener's head without boundary crossfade artifacts.
+4. **Webcam & WebXR Head Tracking**: Integrate face mesh models and WebXR gyroscopic tracking to rotate the virtual HRTF soundfield dynamically relative to the listener's head position, providing a vastly more convincing holographic room simulation.
+5. **SharedArrayBuffer Ring Buffers**: Utilize `SharedArrayBuffer` memory pools and lock-free atomic ring buffers to stream telemetry between the audio thread, background worker, and Three.js visualizer. This removes main thread message serialization overhead entirely.
+6. **Cross-Platform C++ and DAW Export**: Refactor the core Rust crate into a standalone library targeting native VST/AU DAW plugins, mobile apps, and browser extensions from a single codebase.
+
