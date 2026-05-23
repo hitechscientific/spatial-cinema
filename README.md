@@ -120,7 +120,7 @@ This generates the final bundle under the `dist` directory.
 
 1. Navigate to a media source tab (e.g., YouTube playing a cinematic video or movie trailer).
 2. Click the extension icon in your toolbar to open the **Spatial Cinema** HUD.
-3. Click the **Bypass / Active** switch at the top right:
+3. Click the **Bypass / Active** switch at the top inset-inline-end:
    * This captures the active tab audio. The active tab name will display below the header.
    * *Note: When enabling, Chrome will display a screen-sharing indicator at the bottom of your screen. This is a standard security confirmation for the `chrome.tabCapture` API.*
 4. Put on your headphones and select a preset (e.g., *IMAX-style Mode* for films or *Gaming FPS* for games).
