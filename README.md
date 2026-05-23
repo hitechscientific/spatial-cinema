@@ -1,20 +1,22 @@
-# Cinematic Spatial Virtual Surround Sound Chrome Extension
+# 🎧 Cinematic Spatial Virtual Surround Sound Chrome Extension
 
-A production-grade , low-latency browser extension that transforms normal stereo headphones into a virtual 5.1/7.1 surround sound system. Built using Manifest V3, Web Audio API, AudioWorklets, Rust compiled to WebAssembly, Three.js, and Chrome's Offscreen Documents.
+A production-grade, low-latency browser extension that transforms standard stereo headphones into a virtual cinematic 5.1/7.1 surround sound system. Built using Manifest V3, Web Audio API, AudioWorklets, Rust compiled to WebAssembly (with SIMD acceleration), Three.js (WebGL), and Chrome's Offscreen Documents.
 
 ---
 
 ## 🚀 Key Features
 
-* **Universal Browser Tab Capture**: Capture audio generically from YouTube, Netflix, Disney+, Spotify, Twitch, games, and HTML5 players.
-* **7.1 Channel Upmixer**: Intelligently upmixes standard stereo source files into Front Left/Right/Center, Surround L/R, Back L/R, and LFE (Subwoofer) tracks.
-* **Binaural HRTF Engine**: Implements ITD (Interaural Time Difference), IID (Interaural Intensity Difference), and 32-tap FIR pinna reflection filters using standard profiles (MIT KEMAR, CIPIC, SADIE II).
-* **Headphone Acoustic Profiles (v3)**: High-fidelity, 4-stage biquad DSP compensation curves to flatten specific headphone driver responses (Open-back, Closed-back, Gaming, Earbuds).
-* **Psychoacoustic Sub-Bass Synthesis**: Generates higher harmonics of sub-bass pitches so standard headphones can simulate deep cinematic theater bass.
-* **Advanced DSP Enhancements**: Features a dynamic sibilance De-esser, adjustable spectral warmth, and micro-room drift LFO for a fatigue-free, natural listening experience.
-* **Dual-Engine Architecture**: Synchronized filter configurations across an optimized TypeScript WebAudio Worklet and a SIMD-accelerated Rust WASM engine.
-* **3D Soundfield HUD**: Renders a real-time speaker field using WebGL/Three.js showing active spatial wave propagation.
-* **Diagnostics & Benchmarks**: Real-time canvas spectrum analyzers, channel VU meters, and an Offline rendering benchmark suite measuring latency and simulated CPU load.
+* **Universal Browser Tab Capture**: Capture high-fidelity audio generically from YouTube, Netflix, Disney+, Spotify, Twitch, browser games, and HTML5 players.
+* **7.1 Channel Upmixer**: Intelligently extracts surround sound spatial channels (Front Left/Right/Center, Surround L/R, Back L/R, Heights L/R, and LFE Subwoofer) in real-time from standard stereo sources.
+* **Binaural HRTF Convolution Engine**: Implements ITD (Interaural Time Difference), IID (Interaural Intensity Difference), and 32-tap FIR pinna reflection filters using standardized profiles (MIT KEMAR, CIPIC, and SADIE II).
+* **Headphone Acoustic Compensation (v3)**: Features 4-stage cascaded biquad DSP curves modeled specifically to flatten the frequency responses of Open-back, Closed-back, Gaming headsets, and IEM/Earbud drivers.
+* **Psychoacoustic Sub-Bass Synthesizer**: Detects zero-crossings to mathematically synthesize higher harmonics of deep sub-bass frequencies, allowing standard headphone diaphragms to emulate physical theater subwoofer rumble.
+* **Advanced DSP Enhancers**: Real-time sibilance De-esser, adjustable spectral tilt warmth, and a micro-room Haas delay drift LFO to reduce listening fatigue and provide natural spatialization.
+* **Dual-Engine Architecture**: Seamless fallback and synchronization between a lock-free TypeScript AudioWorklet and a SIMD-accelerated Rust WebAssembly engine.
+* **3D Soundfield HUD**: Renders a dynamic virtual speaker layout using Three.js WebGL showing real-time spatial wave propagation in the dashboard.
+* **Personalized Hearing Calibration Wizard**: Sweeps frequencies (250Hz, 1kHz, 4kHz, and 8kHz) per ear to measure individual hearing thresholds and maps the differences to parametric correction curves.
+* **Custom Space Modeling (IR Upload)**: Allows uploading personalized `.wav` binaural room impulse responses (BRIRs) which are decoded, cropped, and loaded directly into the convolver.
+* **Diagnostics & Benchmarks**: Features real-time FFT spectrum graphs, discrete channel VU meters, and an Offline rendering benchmark runner that measures processing latency and simulated CPU overhead.
 
 ---
 
@@ -22,157 +24,195 @@ A production-grade , low-latency browser extension that transforms normal stereo
 
 | Feature | Spatial Cinema (This Project) | OS-Level Virtual Surround (e.g. Windows Sonic) | Premium Spatial Audio (e.g. Dolby Atmos for Headphones) | Standard Stereo |
 | :--- | :--- | :--- | :--- | :--- |
-| **Execution Environment** | **Browser-native** (Web Audio API, WASM) | OS-level | OS-level / Paid software | Anywhere |
+| **Execution Environment** | **Browser-native** (Web Audio, WASM SIMD) | OS-level kernel | OS-level / Paid software | Everywhere |
 | **Platform Compatibility** | **Cross-Platform** (Windows, Mac, Linux, ChromeOS) | Windows / Xbox only | Windows / Xbox / Apple ecosystem | Universal |
-| **DSP Latency** | **Ultra-low (2.67ms)** via AudioWorklets & WASM | Low | Low | Zero |
-| **Headphone Compensation** | **Yes** (4-stage Biquad custom profiles) | No (flat output) | Yes (hardware-dependent) | No |
+| **DSP Latency** | **Ultra-low (2.67ms)** via AudioWorklet | Low | Low | Zero |
+| **Headphone Compensation** | **Yes** (4-stage cascaded custom biquads) | No (flat output) | Yes (hardware-dependent) | No |
 | **Custom Impulse Responses** | **Yes** (Load custom `.wav` HRTFs) | No | No (proprietary only) | N/A |
-| **Upmixing Algorithm** | Real-time **7.1 channel extraction** from stereo sources | 5.1/7.1 to stereo (requires surround source) | Object-based & channel upmixing | None |
+| **Upmixing Algorithm** | **7.1 channel extraction** from stereo sources | 5.1/7.1 to stereo (requires surround source) | Object-based & channel upmixing | None |
 | **Installation** | **Zero-install** browser extension | Built-in (OS) | Paid add-on or bundled | Built-in |
-| **Customizability** | **High** (Deep parametric control, Room size, Warmth) | Low (On/Off) | Medium (EQ presets) | Low |
+| **Customizability** | **High** (Deep room size, warmth, drift parameters) | Low (On/Off) | Medium (EQ presets) | Low |
 
 ---
 
-## 🧠 How Advanced is this Project?
+## 🧠 Deep-Dive Architecture & DSP Operations
 
-Spatial Cinema represents the cutting edge of **browser-based digital signal processing**. Building an audio engine of this caliber in a browser extension requires navigating strict performance budgets and security sandboxes.
+### 1. Dual-Engine DSP Execution Pipeline
+To satisfy strict extension security and performance constraints, the system implements a synchronized dual-engine pipeline:
+* **Primary Engine**: WebAssembly compiled from Rust source code. Heavy vector calculations for FIR filter convolution are accelerated via **128-bit SIMD** operations.
+* **Fallback Engine**: Optimized TypeScript equivalent. If WebAssembly fails to compile or load due to browser security restrictions, the extension gracefully falls back to a Javascript-native pipeline within the `AudioWorkletGlobalScope` to ensure uninterrupted audio.
 
-Here are the technical highlights that make this project exceptionally advanced:
-1. **Zero-Latency Target via AudioWorklets:** Uses modern `AudioWorklet` threads to execute lock-free, zero-allocation DSP in real-time, matching the hardware limit latency of roughly `2.67ms` (128 samples at 48kHz).
-2. **SIMD-Accelerated Rust WASM:** Computationally heavy tasks, such as complex vector multiplications for impulse response convolution, are offloaded to a WebAssembly module written in Rust. This takes advantage of WebAssembly SIMD 128-bit operations to execute parallel floating-point mathematics for extreme efficiency.
-3. **Partitioned Overlap-Save Convolution:** Instead of naive time-domain convolution, it implements a highly optimized **Uniformly Partitioned Overlap-Save Binaural Convolver** with a custom Radix-2 Complex 256-point FFT engine to process 32-tap HRTF filters instantaneously.
-4. **AI Spatial Analyzer:** A custom heuristic AI analyzes the input audio stream in real-time (detecting RMS, Zero-Crossing Rate, crest factor, and stereo correlation) to automatically categorize the scene (e.g., dialogue, action, ambient) and dynamically adjust EQ and width parameters without user intervention.
-5. **Phase-Aligned Subharmonic Bass Synthesizer:** Detects low-frequency zero-crossings to mathematically generate missing sub-harmonics, allowing standard headphones to reproduce the physical "rumble" of a cinematic subwoofer.
-6. **Multi-Stage Acoustic Compensation:** Integrates a complex 4-stage Biquad filter chain specifically modeled to flatten the natural frequency response curve of varying headphone drivers (Open-back, Closed-back, Earbuds).
+### 2. Uniformly Partitioned Overlap-Save Convolution
+Convolution with high-tap impulse responses is computationally expensive in the time domain ($O(N^2)$ complexity). Rather than naive convolution, this project implements a **Uniformly Partitioned Overlap-Save Convolver** using a custom Radix-2 Complex 256-point FFT engine:
+* Large impulse response filters are segmented into equal block partitions ($L = 128$).
+* Real-time inputs are transformed into the frequency domain.
+* Vector multiplications are computed in the frequency domain ($O(N \log N)$ complexity) using Rust SIMD loops, and then transformed back via IFFT.
+* Coefficients are crossfaded dynamically (interpolated by a factor of `0.15` per frame) to prevent clicking or popping artifacts during runtime preset changes.
+
+### 3. AI Audio Scene Analyzer
+The spatializer includes a real-time signal classification system [AISpatialAnalyzer](file:///c:/Users/hitec/own/web_audio_api/spatial%20cinema/src/worklet/surround-processor.ts#L533-L619) that calculates:
+$$\text{RMS} = \sqrt{\frac{1}{N}\sum_{i=1}^{N} x_i^2}$$
+$$\text{Correlation} = \frac{\sum (L_i \cdot R_i)}{\sqrt{\sum L_i^2} \cdot \sqrt{\sum R_i^2}}$$
+$$\text{Crest Factor} = \frac{\text{Peak Amplitude}}{\text{RMS}}$$
+$$\text{ZCR Rate} = \frac{\text{Zero Crossings}}{\text{Frame Length}}$$
+
+Based on these heuristics, the audio is classified:
+* **Dialogue**: High correlation, ZCR proxy in speech ranges (800Hz - 3.5kHz) $\rightarrow$ automatically boosts center channels (+5.0dB) and narrows side image for speech clarity.
+* **Action**: High crest factor and high RMS $\rightarrow$ boosts bass boost factor (1.45x) and slightly dips dialogue EQ to protect hearing.
+* **Music**: Low correlation $\rightarrow$ widens spatial stereo image (1.3x width).
+* **Ambient**: Low RMS $\rightarrow$ expands room size (1.35x width) and cuts sub-bass response.
+
+### 4. 4-Stage Parametric Headphone Compensation Curves
+Driver enclosures and diaphragms alter the frequency response of incoming sound. To achieve flat spatialization, the project introduces parametric correction targets:
+* **Open-Back Boost**: Harman Target 2018 curve compensation. Low-shelf boost below 60Hz (+3dB) and peaking cut at 3.5kHz (-1dB) to tame pinna reflection glare.
+* **Closed-Back Scoop**: Diffuse Field curve. Peaking dip at 200Hz (-3dB) to reduce box cup resonances and a high-shelf boost at 10kHz (+2.5dB) to restore air.
+* **Gaming Headset EQ**: Corrects standard V-shaped responses. Dips bloated bass at 120Hz (-4dB), boosts critical midrange frequencies at 1kHz (+2dB) and 2.5kHz (+2.5dB), and notches bright presence peaks at 7kHz (-2dB).
+* **In-Ear Monitor Tame**: Harman IEM 2019 target. Dips bass seal resonance at 80Hz (-2.5dB), lifts mids at 800Hz (+1dB), and notches high-frequency sibilance at 8kHz (-3dB).
+
+### 5. Hearing Calibration & Parametric Compensation
+The [Hearing Calibration Wizard](file:///c:/Users/hitec/own/web_audio_api/spatial%20cinema/src/dashboard/App.tsx#L797-L907) sweeps test tones across 250Hz, 1kHz, 4kHz, and 8kHz separately for the left and right ears. When the user sets the threshold volume (where they can barely hear the tone), the engine maps the deviation relative to a reference threshold, computing a compensation profile:
+$$\text{Gain Db} = \max(0, (\text{Threshold} - 20) \times 0.22)$$
+This maps compensation gains (up to +17.6dB) into dedicated biquad peaking filters in the AudioWorklet to restore balanced binaural spatial perception.
 
 ---
 
-## 🛠️ Folder Structure
+## 📁 Project Folder Structure
+
+The project's workspace files and folders are organized as follows:
 
 ```
-audio_plugin/
-├── Cargo.toml                       # Root Rust Cargo settings
-├── package.json                     # JS/React/Vite dependencies
-├── tsconfig.json                    # TypeScript compiler options
-├── vite.config.ts                   # Multi-entry build configuration
-├── tailwind.config.js               # Dark studio theme setup
-├── postcss.config.js                # PostCSS autoprefixer
-├── manifest.json                    # Extension Manifest V3 configuration
-├── icons/                           # Extension icons (created by scripts/generate-icons.js)
+spatial cinema/
+├── Cargo.toml                          # Workspaces Rust configuration
+├── build.bat                           # Windows compiler helper shell
+├── manifest.json                       # Extension Manifest V3 metadata
+├── package.json                        # NPM React/TypeScript dependencies
+├── postcss.config.js                   # Styles postprocessor setup
+├── tailwind.config.js                  # Tailwind CSS theme configurations
+├── tsconfig.json                       # TypeScript compiler guidelines
+├── vite.config.ts                      # Multi-entry build and asset packaging
+├── icons/                              # Stored extension PNG graphics
+├── public/                             # Public static assets
+│   └── wasm/
+│       └── surround_dsp.wasm           # Compiled WebAssembly binary
 ├── scripts/
-│   └── generate-icons.js            # Node script copying generated premium assets
-├── src/
-│   ├── background/
-│   │   └── serviceWorker.ts         # Coordinates Tab Capture and Offscreen documents
-│   ├── offscreen/
-│   │   ├── offscreen.html
-│   │   └── offscreen.ts             # Web Audio context host & custom IR decoder
-│   ├── worklet/
-│   │   └── surround-processor.ts    # AudioWorklet real-time DSP thread
-│   ├── dsp/
-│   │   ├── Cargo.toml
-│   │   └── src/
-│   │       └── lib.rs               # Rust WASM DSP (SIMD ready)
-│   ├── utils/
-│   │   ├── hrtf-data.ts             # HRTF FIR and delay profiles
-│   │   ├── store.ts                 # Zustand state sync to chrome.storage
-│   │   └── offline-tester.ts        # OfflineAudioContext benchmark tests
-│   └── popup/
-│       ├── index.html
-│       ├── main.tsx
-│       ├── App.tsx
-│       ├── index.css
-│       └── components/
-│           ├── SpeakerVisualizer.tsx # Three.js WebGL Speaker layout
-│           └── AudioVisualizer.tsx   # Canvas-based spectrum and VU meters
-└── README.md                        # Documentation
+│   └── generate-icons.js               # Utility script generating extension icons
+└── src/
+    ├── background/
+    │   └── serviceWorker.ts            # Extension service worker (capture coordination)
+    ├── dashboard/
+    │   ├── index.html                  # HTML entry point for the 3D Dashboard
+    │   ├── main.tsx                    # React mounting script
+    │   ├── App.tsx                     # 3D Dashboard container and Wizard states
+    │   └── components/
+    │       └── DashboardSpeakerVisualizer.tsx # Three.js WebGL 3D speaker field render
+    ├── dsp/
+    │   ├── Cargo.toml                  # Rust wasm-pack configuration
+    │   └── src/
+    │       └── lib.rs                  # Core Rust DSP SIMD convolution source code
+    ├── offscreen/
+    │   ├── offscreen.html              # Context host for chrome.tabCapture streams
+    │   └── offscreen.ts                # AudioContext setup and custom IR decoder
+    ├── popup/
+    │   ├── index.html                  # HTML entry point for browser popup
+    │   ├── main.tsx                    # React popup mounting script
+    │   ├── App.tsx                     # Popup controller interface
+    │   ├── index.css                   # Global styles and tailwind components
+    │   └── components/
+    │       ├── AudioVisualizer.tsx     # Canvas-based spectrum and VU metrics
+    │       └── SpeakerVisualizer.tsx   # Canvas speaker angle HUD
+    └── utils/
+        ├── hrtf-data.ts                # HRTF impulse responses databases
+        ├── offline-tester.ts           # OfflineAudioContext benchmark suite
+        └── store.ts                    # Zustand Chrome storage synchronization store
 ```
 
 ---
 
 ## 📦 Getting Started & Compiling
 
-Follow these steps to compile and install the extension locally.
-
 ### Prerequisites
 * **Node.js** (v18 or higher) & **NPM**
-* **Rust & Cargo** (optional, for editing the WebAssembly module)
-* **wasm-pack** (optional, for compiling Cargo crates to WASM: `cargo install wasm-pack`)
+* **Rust toolchain** (optional, to modify or compile the WebAssembly DSP engine)
+* **wasm-pack** (optional, run `cargo install wasm-pack` to compile Rust to WASM)
 
-### Step 1: Install Node Dependencies
-Open a shell in the workspace directory and install standard packages:
+### Step 1: Install Dependencies
+Open a command prompt in the workspace directory and install packages:
 ```bash
 npm install
 ```
 
-### Step 2: Generate Extension Icons
-Execute the icon preparer to establish default icon assets. This script automatically detects and copies the premium circular logo asset generated during development:
+### Step 2: Generate Asset Icons
+Run the icon generator script to copy pre-packaged graphical assets to the extension folders:
 ```bash
 node scripts/generate-icons.js
 ```
 
-### Step 3: Compile Rust WASM (Optional)
-If you wish to compile or modify the Rust DSP performance filters:
+### Step 3: Compile the Rust WebAssembly Crate (Optional)
+If you make changes to the Rust engine in [lib.rs](file:///c:/Users/hitec/own/web_audio_api/spatial%20cinema/src/dsp/src/lib.rs):
 ```bash
-# Navigate to the dsp directory
+# Navigate to the dsp crate directory
 cd src/dsp
 
-# Compile to WebAssembly targeting standard web imports
+# Compile to WASM targeting web imports
 wasm-pack build --target web
 
-# Copy the compiled WASM binary to public/wasm for Vite bundling
+# Copy/rename the generated binary to the public assets directory
 mkdir -p ../../public/wasm
 cp pkg/surround_dsp_bg.wasm ../../public/wasm/surround_dsp.wasm
 ```
-*Note: If WebAssembly is not compiled or fails to load, the extension instantly and gracefully falls back to the highly optimized, fully featured TypeScript DSP implementation inside the AudioWorklet.*
+*Note: If the WASM file is missing or blocked by browser CSP policies, the extension automatically falls back to the TypeScript execution code.*
 
 ### Step 4: Build the Extension
-Build the popup, offscreen document, background workers, and AudioWorklet processor:
+Compile TypeScript files, process CSS, and build all extension entry points with Vite:
 ```bash
 npm run build
 ```
-This generates the final bundle under the `dist` directory.
+This output is written to the `/dist` directory.
 
 ---
 
-## 🔌 Installing in Chrome / Edge / Brave
+## 🔌 Installing in Browsers
 
-1. Open your browser and navigate to the Extensions page:
-   * Chrome: `chrome://extensions`
-   * Edge: `edge://extensions`
-   * Brave: `brave://extensions`
-2. Enable the **Developer Mode** toggle switch (usually top right).
+1. Open your browser and navigate to the Extensions management page:
+   * **Chrome**: `chrome://extensions`
+   * **Edge**: `edge://extensions`
+   * **Brave**: `brave://extensions`
+2. Enable the **Developer Mode** toggle switch (usually found in the top-right corner).
 3. Click the **Load unpacked** button.
-4. Select the `dist` folder located inside this project directory.
-5. The **Cinematic Spatial Virtual Surround** extension card is now active!
+4. Select the `dist` folder generated inside this project directory.
+5. The extension is now loaded and visible in your browser's toolbar!
 
 ---
 
-## 🎮 Usage Guide
+## 🎮 Extended Usage Guide
 
-1. Navigate to a media source tab (e.g., YouTube playing a cinematic video or movie trailer).
-2. Click the extension icon in your toolbar to open the **Spatial Cinema** HUD.
-3. Click the **Bypass / Active** switch at the top inset-inline-end:
-   * This captures the active tab audio. The active tab name will display below the header.
-   * *Note: When enabling, Chrome will display a screen-sharing indicator at the bottom of your screen. This is a standard security confirmation for the `chrome.tabCapture` API.*
-4. Put on your headphones and select a preset (e.g., *IMAX-style Mode* for films or *Gaming FPS* for games).
-5. Customize sliders on the **Enhancers** and **Profiles** tabs to match your listening preferences.
+1. Open a media source tab (e.g., YouTube playing a Dolby Atmos test video or movie trailer).
+2. Click the extension icon in your toolbar to open the **Aether Spatial** Popup.
+3. Click the **Bypass / Active** toggle to start capturing.
+   * *Security Note: Chrome will display a screen-sharing indicator at the bottom of the screen. This is standard behavior for the `chrome.tabCapture` API to routing tab audio to the offscreen page.*
+4. Select an acoustic preset from the list to suit your content:
+   * **Cinema Reference**: Balanced curve optimized for movies with low-frequency enhancement and clear center dialogue.
+   * **Competitive FPS**: Max spatialized directionality with reduced bass rumble and boosted presence so you can hear footsteps.
+   * **Concert Arena**: High reverb reflections, maximum surround width, and punchy subharmonic bass.
+   * **Relaxed Night**: Damped room reflections with high sibilance de-esser and spectral warmth for relaxed listening.
+5. Click **Launch 3D Control Center** to open the advanced Dashboard tab.
+6. Under **Room Tuning**, configure Virtual Room Dimensions, Wall Absorption, sibilance damping, and Haas Delay Drift to personalize the room model.
 
-### Loading Custom Impulse Responses (WAV IR)
-You can upload personalized head acoustic profiles or binaural room recordings:
-1. Go to the **Profiles** tab.
-2. Under "Custom Impulse WAV", click **Load .WAV**.
-3. Upload any standard audio WAV file. The extension will automatically decode the audio, crop it to the 32-tap FIR filter format, and push it directly into the AudioWorklet processor.
+### Uploading Custom Impulse Responses
+If you have custom Binaural Room Impulse Responses (BRIR) or personalized HRTFs:
+1. Open the **Aether Spatial Control Center** dashboard.
+2. Under **Custom Space Modeling**, click the upload area and select a `.wav` file.
+3. The offscreen script decodes the file, extracts the left/right impulse channels, crops them to the convolver's 256-sample window, and pushes the coefficients to the processor.
 
 ---
 
-## 🧪 Testing and Diagnostics
+## 🧪 Testing & Diagnostics
 
-You can verify the DSP engine accuracy, latency, and performance directly inside the extension:
-1. Open the popup and select the **Profiles** tab.
-2. Click **Test Engine** next to the uploader.
-3. This spins up an **OfflineAudioContext**, injects transient noise tests, renders the buffer in a background thread, and opens a diagnostics HUD detailing:
-   * **Estimated Latency**: Typically `2.67ms` (matching the 128-sample AudioWorklet boundary).
-   * **Simulated CPU Load**: Benchmarks execution time. Shows `<1%` representing extremely lightweight execution.
-   * **Peak Amplitude**: Verifies that the peak limiter prevented output clipping (`clipping undetected`).
-   * **API Checks**: Validates native support for AudioWorklet, WASM, and chrome extension captures.
+Verify DSP engine accuracy, latency constraints, and performance inside the dashboard:
+1. Launch the **3D Control Center** dashboard.
+2. Click the **DSP Benchmark** button in the bottom-right corner.
+3. This spins up an [offline-tester.ts](file:///c:/Users/hitec/own/web_audio_api/spatial%20cinema/src/utils/offline-tester.ts) runner using an `OfflineAudioContext`:
+   * Renders a 1.0-second synthetic white noise buffer with hot transient bursts.
+   * Checks processing time: A healthy pipeline processes the buffer in under `5ms` (representing `<0.5%` simulated CPU load).
+   * Verifies that the peak limiter was activated during hot transient bursts, keeping the peak output under `1.0` and preventing clipping distortion.
+   * Confirms API compatibility for AudioWorklets, WebAssembly, tab capture, and offscreen documents.
