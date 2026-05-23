@@ -9,10 +9,12 @@ let sourceNode: MediaStreamAudioSourceNode | null = null;
 let workletNode: AudioWorkletNode | null = null;
 let analyserNode: AnalyserNode | null = null;
 let spectrumInterval: number | null = null;
+let isUIActive = false;
 
 // Listen for messages from the service worker background page
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'START_CAPTURE') {
+    isUIActive = !!message.isUIActive;
     startCapture(message.streamId, message.settings)
       .then(() => sendResponse({ success: true }))
       .catch((err) => sendResponse({ success: false, error: err.message }));
@@ -23,6 +25,16 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return false;
   } else if (message.type === 'SETTINGS_UPDATE') {
     updateSettings(message.settings);
+    sendResponse({ success: true });
+    return false;
+  } else if (message.type === 'UI_ACTIVE_STATE') {
+    isUIActive = message.isActive;
+    if (workletNode) {
+      workletNode.port.postMessage({
+        type: 'SET_UI_ACTIVE',
+        isActive: isUIActive
+      });
+    }
     sendResponse({ success: true });
     return false;
   }
@@ -79,6 +91,12 @@ async function startCapture(streamId: string, settings: any) {
       outputChannelCount: [2] // Output stereo (binaural)
     });
 
+    // Set initial UI active state in the worklet to minimize telemetry overhead
+    workletNode.port.postMessage({
+      type: 'SET_UI_ACTIVE',
+      isActive: isUIActive
+    });
+
     analyserNode = audioContext.createAnalyser();
     analyserNode.fftSize = 256; // Fast frequency analysis for spectrum bar graph
     analyserNode.smoothingTimeConstant = 0.75;
@@ -127,7 +145,7 @@ async function startCapture(streamId: string, settings: any) {
     // 9. Start real-time audio visualization analyzer interval
     const dataArray = new Uint8Array(analyserNode.frequencyBinCount);
     spectrumInterval = window.setInterval(() => {
-      if (analyserNode) {
+      if (analyserNode && isUIActive) {
         analyserNode.getByteFrequencyData(dataArray);
         chrome.runtime.sendMessage({
           type: 'SPECTRUM_DATA_UI',

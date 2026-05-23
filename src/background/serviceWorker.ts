@@ -4,6 +4,8 @@
 
 const OFFSCREEN_PATH = 'src/offscreen/offscreen.html';
 let activeCapturedTabId: number | null = null;
+let refreshingTabId: number | null = null;
+const activeUIPorts = new Set<chrome.runtime.Port>();
 
 // Listen for keyboard shortcuts
 chrome.commands.onCommand.addListener((command) => {
@@ -53,10 +55,11 @@ async function handleToggleCommand() {
   // Notify any open Popups to sync their checkbox/toggle UI states
   chrome.runtime.sendMessage({ type: 'SETTINGS_UPDATE', settings }).catch(() => {});
 
+  // Update the offscreen document instantly (software bypass)
+  await forwardToOffscreen({ type: 'SETTINGS_UPDATE', settings });
+
   if (settings.isEnabled) {
     await startTabAudioCapture();
-  } else {
-    await stopTabAudioCapture();
   }
 }
 
@@ -99,11 +102,12 @@ async function startTabAudioCapture() {
     // 4. Ensure Offscreen Document is opened
     await ensureOffscreenDocument();
 
-    // 5. Send capture trigger to offscreen
+    // 5. Send capture trigger to offscreen with UI active state
     await chrome.runtime.sendMessage({
       type: 'START_CAPTURE',
       streamId,
-      settings
+      settings,
+      isUIActive: activeUIPorts.size > 0
     });
 
     console.log(`Successfully started surround sound processing for tab: ${tab.title} (${tab.id})`);
@@ -115,15 +119,17 @@ async function startTabAudioCapture() {
   }
 }
 
-async function stopTabAudioCapture() {
+async function stopTabAudioCapture(keepSettingsEnabled: boolean = false) {
   try {
     const data = await chrome.storage.local.get('surround_settings');
     const settings = data.surround_settings || {};
-    settings.isEnabled = false;
-    await chrome.storage.local.set({ 'surround_settings': settings });
-
-    // Notify any open Popups or Dashboards to sync their UI state
-    chrome.runtime.sendMessage({ type: 'SETTINGS_UPDATE', settings }).catch(() => {});
+    
+    if (!keepSettingsEnabled) {
+      settings.isEnabled = false;
+      await chrome.storage.local.set({ 'surround_settings': settings });
+      // Notify any open Popups or Dashboards to sync their UI state
+      chrome.runtime.sendMessage({ type: 'SETTINGS_UPDATE', settings }).catch(() => {});
+    }
 
     const hasDoc = await hasOffscreenDocument();
     if (hasDoc) {
@@ -177,12 +183,33 @@ chrome.tabs.onRemoved.addListener((tabId) => {
     console.log(`Captured tab ${tabId} removed. Releasing spatializer.`);
     stopTabAudioCapture().catch(() => {});
   }
+  if (tabId === refreshingTabId) {
+    refreshingTabId = null;
+  }
 });
 
-chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
   if (tabId === activeCapturedTabId && changeInfo.status === 'loading') {
-    console.log(`Captured tab ${tabId} refreshed or navigated. Releasing spatializer.`);
-    stopTabAudioCapture().catch(() => {});
+    console.log(`Captured tab ${tabId} refreshed or navigated. Releasing spatializer temporarily.`);
+    refreshingTabId = tabId;
+    await stopTabAudioCapture(true); // keepSettingsEnabled = true
+  } else if (tabId === refreshingTabId && changeInfo.status === 'complete') {
+    console.log(`Captured tab ${tabId} finished reloading. Re-establishing spatializer capture.`);
+    refreshingTabId = null;
+    
+    // Check if the tab is still active before attempting recapture
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (activeTab && activeTab.id === tabId) {
+      const data = await chrome.storage.local.get('surround_settings');
+      const settings = data.surround_settings || {};
+      if (settings.isEnabled) {
+        try {
+          await startTabAudioCapture();
+        } catch (e) {
+          console.warn("Failed to automatically recapture tab after refresh:", e);
+        }
+      }
+    }
   }
 });
 
@@ -219,3 +246,34 @@ chrome.runtime.onInstalled.addListener(async () => {
     });
   }
 });
+
+// Track active UI port connections to enable/disable worklet telemetry dynamically
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name === 'spatial-cinema-ui') {
+    activeUIPorts.add(port);
+    console.log(`UI connection established. Active clients: ${activeUIPorts.size}`);
+    updateUIActiveState(true).catch(() => {});
+
+    port.onDisconnect.addListener(() => {
+      activeUIPorts.delete(port);
+      console.log(`UI connection closed. Active clients: ${activeUIPorts.size}`);
+      if (activeUIPorts.size === 0) {
+        updateUIActiveState(false).catch(() => {});
+      }
+    });
+  }
+});
+
+async function updateUIActiveState(isActive: boolean) {
+  try {
+    const hasDoc = await hasOffscreenDocument();
+    if (hasDoc) {
+      await chrome.runtime.sendMessage({
+        type: 'UI_ACTIVE_STATE',
+        isActive
+      });
+    }
+  } catch (e) {
+    // Suppress context invalidation/routing errors
+  }
+}

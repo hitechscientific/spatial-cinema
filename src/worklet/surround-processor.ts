@@ -532,6 +532,13 @@ class SlowLFO {
 // AI Audio Scene Analyzer
 class AISpatialAnalyzer {
   lastClass = "flat";
+  result = {
+    classification: "flat",
+    vocalBoostDb: 0,
+    bassBoostFactor: 1.0,
+    widthFactor: 1.0
+  };
+
   detect(inL: Float32Array, inR: Float32Array, sampleRateValue: number): {
     classification: string;
     vocalBoostDb: number;
@@ -602,12 +609,12 @@ class AISpatialAnalyzer {
 
     this.lastClass = classification;
 
-    return {
-      classification,
-      vocalBoostDb,
-      bassBoostFactor,
-      widthFactor
-    };
+    this.result.classification = classification;
+    this.result.vocalBoostDb = vocalBoostDb;
+    this.result.bassBoostFactor = bassBoostFactor;
+    this.result.widthFactor = widthFactor;
+
+    return this.result;
   }
 }
 
@@ -736,6 +743,8 @@ class SurroundProcessor extends AudioWorkletProcessor {
   // Analytical metrics & scheduler variables
   analyticTimer = 0;
   channelLevels = new Float32Array(10);
+  channelLevelsArray = new Array(10).fill(0);
+  isUIActive = false;
   rollingElapsed = 0;
   voiceEnvelope = 0;
   dspCycleCount = 0;
@@ -795,6 +804,8 @@ class SurroundProcessor extends AudioWorkletProcessor {
         this.loadHRTFTaps(msg.profile);
       } else if (msg.type === "INITIALIZE_WASM") {
         this.initializeWasm(msg.wasmModule);
+      } else if (msg.type === "SET_UI_ACTIVE") {
+        this.isUIActive = msg.isActive;
       }
     };
   }
@@ -1281,7 +1292,7 @@ class SurroundProcessor extends AudioWorkletProcessor {
         
         this.analyticTimer++;
         this.dspCycleCount++;
-        if (this.analyticTimer >= 15) {
+        if (this.isUIActive && this.analyticTimer >= 15) {
           this.analyticTimer = 0;
           this.channelLevels[0] = maxL;
           this.channelLevels[1] = maxR;
@@ -1294,9 +1305,13 @@ class SurroundProcessor extends AudioWorkletProcessor {
           this.channelLevels[8] = maxLs * 0.6;
           this.channelLevels[9] = maxRs * 0.6;
 
+          for (let idx = 0; idx < 10; idx++) {
+            this.channelLevelsArray[idx] = this.channelLevels[idx];
+          }
+
           this.port.postMessage({
             type: "LEVEL_METERS",
-            levels: Array.from(this.channelLevels),
+            levels: this.channelLevelsArray,
             outputLevel: [maxL * this.volume],
             aiClass: "wasm_active",
             performanceMs: this.rollingElapsed,
@@ -1445,25 +1460,25 @@ class SurroundProcessor extends AudioWorkletProcessor {
     // Convolve channels
     // Front L/R
     this.convolvers["L"].processBlock(duckedL, accumRealL, accumImagL, accumRealR, accumImagR);
-    this.convolvers["R"].processBlock(duckedR, accumRealL, accumImagL, accumRealR, accumImagR);
+    this.convolvers["R"].processBlock(duckedR, accumRealR, accumImagR, accumRealL, accumImagL);
     
     // Center
     this.convolvers["C"].processBlock(upmixC, accumRealL, accumImagL, accumRealR, accumImagR);
 
     // Surround L/R
     this.convolvers["Ls"].processBlock(upmixLs, accumRealL, accumImagL, accumRealR, accumImagR);
-    this.convolvers["Rs"].processBlock(upmixRs, accumRealL, accumImagL, accumRealR, accumImagR);
+    this.convolvers["Rs"].processBlock(upmixRs, accumRealR, accumImagR, accumRealL, accumImagL);
 
     // Height L/R
     this.convolvers["Lh"].processBlock(upmixLh, accumRealL, accumImagL, accumRealR, accumImagR);
-    this.convolvers["Rh"].processBlock(upmixRh, accumRealL, accumImagL, accumRealR, accumImagR);
+    this.convolvers["Rh"].processBlock(upmixRh, accumRealR, accumImagR, accumRealL, accumImagL);
 
     // Performance Scheduler: If processing elapsed times are high, skip back surrounds convolve
     // and merge their energy into the surrounds to save math cycles
     const loadLimitReached = this.rollingElapsed > schedulerThreshold;
     if (!loadLimitReached) {
       this.convolvers["Lb"].processBlock(upmixLb, accumRealL, accumImagL, accumRealR, accumImagR);
-      this.convolvers["Rb"].processBlock(upmixRb, accumRealL, accumImagL, accumRealR, accumImagR);
+      this.convolvers["Rb"].processBlock(upmixRb, accumRealR, accumImagR, accumRealL, accumImagL);
     } else {
       // Fallback: mix Backs into Surrounds (panning back channels directly to side convolvers)
       for (let i = 0; i < 128; i++) {
@@ -1578,7 +1593,7 @@ class SurroundProcessor extends AudioWorkletProcessor {
     // --- STAGE 8: TELEMETRY STAGE ---
     this.analyticTimer++;
     this.dspCycleCount++;
-    if (this.analyticTimer >= 15) {
+    if (this.isUIActive && this.analyticTimer >= 15) {
       this.analyticTimer = 0;
       this.channelLevels[0] = maxL;
       this.channelLevels[1] = maxR;
@@ -1591,9 +1606,13 @@ class SurroundProcessor extends AudioWorkletProcessor {
       this.channelLevels[8] = maxLh;
       this.channelLevels[9] = maxRh;
 
+      for (let idx = 0; idx < 10; idx++) {
+        this.channelLevelsArray[idx] = this.channelLevels[idx];
+      }
+
       this.port.postMessage({
         type: "LEVEL_METERS",
-        levels: Array.from(this.channelLevels),
+        levels: this.channelLevelsArray,
         outputLevel: [this.limiter.envelope],
         aiClass: aiClass,
         performanceMs: this.rollingElapsed,

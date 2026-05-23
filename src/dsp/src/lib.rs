@@ -1277,14 +1277,14 @@ impl Spatializer {
         // Process block convolvers
         // 9 channels: L, R, C, Ls, Rs, Lb, Rb, Lh, Rh
         self.convolvers[0].process_block(&self.ducked_l, &mut self.accum_real_l, &mut self.accum_imag_l, &mut self.accum_real_r, &mut self.accum_imag_r, &self.fft_helper);
-        self.convolvers[1].process_block(&self.ducked_r, &mut self.accum_real_l, &mut self.accum_imag_l, &mut self.accum_real_r, &mut self.accum_imag_r, &self.fft_helper);
+        self.convolvers[1].process_block(&self.ducked_r, &mut self.accum_real_r, &mut self.accum_imag_r, &mut self.accum_real_l, &mut self.accum_imag_l, &self.fft_helper);
         self.convolvers[2].process_block(&self.upmix_c, &mut self.accum_real_l, &mut self.accum_imag_l, &mut self.accum_real_r, &mut self.accum_imag_r, &self.fft_helper);
         self.convolvers[3].process_block(&self.upmix_ls, &mut self.accum_real_l, &mut self.accum_imag_l, &mut self.accum_real_r, &mut self.accum_imag_r, &self.fft_helper);
-        self.convolvers[4].process_block(&self.upmix_rs, &mut self.accum_real_l, &mut self.accum_imag_l, &mut self.accum_real_r, &mut self.accum_imag_r, &self.fft_helper);
+        self.convolvers[4].process_block(&self.upmix_rs, &mut self.accum_real_r, &mut self.accum_imag_r, &mut self.accum_real_l, &mut self.accum_imag_l, &self.fft_helper);
         self.convolvers[5].process_block(&self.upmix_lb, &mut self.accum_real_l, &mut self.accum_imag_l, &mut self.accum_real_r, &mut self.accum_imag_r, &self.fft_helper);
-        self.convolvers[6].process_block(&self.upmix_rb, &mut self.accum_real_l, &mut self.accum_imag_l, &mut self.accum_real_r, &mut self.accum_imag_r, &self.fft_helper);
+        self.convolvers[6].process_block(&self.upmix_rb, &mut self.accum_real_r, &mut self.accum_imag_r, &mut self.accum_real_l, &mut self.accum_imag_l, &self.fft_helper);
         self.convolvers[7].process_block(&self.upmix_lh, &mut self.accum_real_l, &mut self.accum_imag_l, &mut self.accum_real_r, &mut self.accum_imag_r, &self.fft_helper);
-        self.convolvers[8].process_block(&self.upmix_rh, &mut self.accum_real_l, &mut self.accum_imag_l, &mut self.accum_real_r, &mut self.accum_imag_r, &self.fft_helper);
+        self.convolvers[8].process_block(&self.upmix_rh, &mut self.accum_real_r, &mut self.accum_imag_r, &mut self.accum_real_l, &mut self.accum_imag_l, &self.fft_helper);
 
         // IFFT back to time domain
         self.fft_helper.ifft(&mut self.accum_real_l, &mut self.accum_imag_l);

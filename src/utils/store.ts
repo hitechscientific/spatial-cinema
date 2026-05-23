@@ -201,6 +201,7 @@ interface StoreState extends AppSettings {
 }
 
 const hasChromeStorage = typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local;
+let uiPort: any = null;
 
 export const useStore = create<StoreState>((set, get) => ({
   ...DEFAULT_SETTINGS,
@@ -212,6 +213,16 @@ export const useStore = create<StoreState>((set, get) => ({
     
     let loadedSettings: Partial<AppSettings> = {};
     if (hasChromeStorage) {
+      // Establish port connection to background to track active UI state
+      try {
+        uiPort = chrome.runtime.connect({ name: 'spatial-cinema-ui' });
+        if (uiPort) {
+          console.log("Active UI port initialized");
+        }
+      } catch (e) {
+        console.warn("Failed to connect UI port:", e);
+      }
+
       const data = await chrome.storage.local.get('surround_settings');
       if (data.surround_settings) {
         loadedSettings = data.surround_settings;
