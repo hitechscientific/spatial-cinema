@@ -781,10 +781,10 @@ class SurroundProcessor extends AudioWorkletProcessor {
     this.lfeLPF.setLowpass(120, this.sampleRateValue, 0.707);
     this.dialogueEQ.setPeaking(1500, this.sampleRateValue, 3.0, 1.2);
 
-    this.heightBandpassL.setBandpass(4500, this.sampleRateValue, 0.85);
-    this.heightBandpassR.setBandpass(4500, this.sampleRateValue, 0.85);
-    this.heightNotchL.setNotch(6000, this.sampleRateValue, 6.0);
-    this.heightNotchR.setNotch(6000, this.sampleRateValue, 6.0);
+    this.heightBandpassL.setBandpass(6000, this.sampleRateValue, 1.0);
+    this.heightBandpassR.setBandpass(6000, this.sampleRateValue, 1.0);
+    this.heightNotchL.setNotch(7500, this.sampleRateValue, 5.0);
+    this.heightNotchR.setNotch(7500, this.sampleRateValue, 5.0);
 
     // Setup side ducker peak notches (duck vocal range in side channels)
     this.sideDuckerL.setPeaking(1500, this.sampleRateValue, 0, 1.0);

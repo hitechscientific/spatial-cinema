@@ -811,13 +811,13 @@ impl Spatializer {
         // Height filter bands
         let mut height_bandpass_l = Biquad::new();
         let mut height_bandpass_r = Biquad::new();
-        height_bandpass_l.set_bandpass(4800.0, sample_rate, 1.2);
-        height_bandpass_r.set_bandpass(4800.0, sample_rate, 1.2);
+        height_bandpass_l.set_bandpass(6000.0, sample_rate, 1.0);
+        height_bandpass_r.set_bandpass(6000.0, sample_rate, 1.0);
 
         let mut height_notch_l = Biquad::new();
         let mut height_notch_r = Biquad::new();
-        height_notch_l.set_notch(6000.0, sample_rate, 6.0);
-        height_notch_r.set_notch(6000.0, sample_rate, 6.0);
+        height_notch_l.set_notch(7500.0, sample_rate, 5.0);
+        height_notch_r.set_notch(7500.0, sample_rate, 5.0);
 
         // Dialogue ducking notches
         let mut side_ducker_l = Biquad::new();

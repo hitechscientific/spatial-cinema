@@ -1,6 +1,6 @@
-# 🎧 Cinematic Spatial Virtual Surround Sound Chrome Extension
+# 🎬 Browser-Native Cinematic Headphone Virtualization (Home Theatre Mode)
 
-A production-grade, low-latency browser extension that transforms standard stereo headphones into a virtual cinematic 5.1/7.1 surround sound system. Built using Manifest V3, Web Audio API, AudioWorklets, Rust compiled to WebAssembly (with SIMD acceleration), Three.js (WebGL), and Chrome's Offscreen Documents.
+A production-grade, low-latency browser extension that makes standard headphones feel like a premium cinema. Rather than an abstract "audio booster", it implements a true "Home Theatre Mode" that virtualizes discrete speaker fields, manages dynamic range, and calibrates room acoustics directly in your browser. Built using Manifest V3, Web Audio API, AudioWorklets, Rust compiled to WebAssembly (with SIMD acceleration), Three.js (WebGL), and Chrome's Offscreen Documents.
 
 ---
 
@@ -191,10 +191,12 @@ This output is written to the `/dist` directory.
 3. Click the **Bypass / Active** toggle to start capturing.
    * *Security Note: Chrome will display a screen-sharing indicator at the bottom of the screen. This is standard behavior for the `chrome.tabCapture` API to routing tab audio to the offscreen page.*
 4. Select an acoustic preset from the list to suit your content:
-   * **Cinema Reference**: Balanced curve optimized for movies with low-frequency enhancement and clear center dialogue.
-   * **Competitive FPS**: Max spatialized directionality with reduced bass rumble and boosted presence so you can hear footsteps.
-   * **Concert Arena**: High reverb reflections, maximum surround width, and punchy subharmonic bass.
-   * **Relaxed Night**: Damped room reflections with high sibilance de-esser and spectral warmth for relaxed listening.
+   * **Dolby Cinema Reference**: Balanced curve optimized for movies, featuring center dialogue stabilization, controlled theatrical subwoofer bass, and immersive room surrounds.
+   * **IMAX Theater Mode**: Simulated huge cinema hall width, powerful subharmonic LFE rumble, and deep reflections for an expansive sense of scale.
+   * **Small Room Theater**: Tighter, shorter reflections and closer center-speaker localization, suited for standard domestic home theatre setups.
+   * **Night Cinema Mode**: Restricts transient peak amplitudes (dynamic range control) while taming sub-bass rumble to maintain vocal audibility without waking the house.
+   * **Cinematic Dialogue Boost**: Focuses on vocal midrange frequency clarity and side-channel ducker attenuation to resolve quiet dialogue issues.
+   * **Competitive FPS**: Optimizes spatial directionality and high-frequency positioning for game audio.
 5. Click **Launch 3D Control Center** to open the advanced Dashboard tab.
 6. Under **Room Tuning**, configure Virtual Room Dimensions, Wall Absorption, sibilance damping, and Haas Delay Drift to personalize the room model.
 

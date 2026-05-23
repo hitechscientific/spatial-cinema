@@ -120,8 +120,8 @@ export const DashboardSpeakerVisualizer: React.FC<SpeakerVisualizerProps> = ({ l
       { name: "Rs", angle: 110, radius: 3.2, yPos: 0.1, color: 0xe5973b, index: 5 },
       { name: "Lb", angle: -150, radius: 3.0, yPos: 0.2, color: 0xe5973b, index: 6 },
       { name: "Rb", angle: 150, radius: 3.0, yPos: 0.2, color: 0xe5973b, index: 7 },
-      { name: "Lh", angle: -45, radius: 2.8, yPos: 1.6, color: 0xffaa00, index: 8 }, // Amber Height L
-      { name: "Rh", angle: 45, radius: 2.8, yPos: 1.6, color: 0xffaa00, index: 9 }, // Amber Height R
+      { name: "Lh", angle: -90, radius: 2.4, yPos: 1.9, color: 0xffaa00, index: 8 }, // Amber Height L
+      { name: "Rh", angle: 90, radius: 2.4, yPos: 1.9, color: 0xffaa00, index: 9 }, // Amber Height R
       { name: "Sub", angle: 0, radius: 2.2, yPos: -0.6, color: 0xc4b597, index: 3 } // Soft Sand LFE
     ];
 

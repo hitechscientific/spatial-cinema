@@ -34,7 +34,7 @@ export interface PresetDef {
 
 export const PRESETS: { [key: string]: PresetDef } = {
   cinema_ref: {
-    name: "Cinema Reference",
+    name: "Dolby Cinema Reference",
     settings: {
       volume: 0.85,
       surroundIntensity: 0.9,
@@ -52,7 +52,7 @@ export const PRESETS: { [key: string]: PresetDef } = {
     }
   },
   large_hall: {
-    name: "Large Hall",
+    name: "IMAX Theater Mode",
     settings: {
       volume: 0.8,
       surroundIntensity: 1.2,
@@ -70,7 +70,7 @@ export const PRESETS: { [key: string]: PresetDef } = {
     }
   },
   intimate_studio: {
-    name: "Intimate Studio",
+    name: "Small Room Theater",
     settings: {
       volume: 0.8,
       surroundIntensity: 0.6,
@@ -124,7 +124,7 @@ export const PRESETS: { [key: string]: PresetDef } = {
     }
   },
   dialogue_focus: {
-    name: "Dialogue Focus",
+    name: "Cinematic Dialogue Boost",
     settings: {
       volume: 0.8,
       surroundIntensity: 0.4,
@@ -142,7 +142,7 @@ export const PRESETS: { [key: string]: PresetDef } = {
     }
   },
   relaxed_night: {
-    name: "Relaxed Night",
+    name: "Night Cinema Mode",
     settings: {
       volume: 0.7,
       surroundIntensity: 0.5,
@@ -159,7 +159,7 @@ export const PRESETS: { [key: string]: PresetDef } = {
       driftAmount: 0.1
     }
   }
-};
+};;
 
 const DEFAULT_SETTINGS: AppSettings = {
   isEnabled: false,

@@ -119,8 +119,8 @@ export const SpeakerVisualizer: React.FC<SpeakerVisualizerProps> = ({ levels, is
       { name: "Rs", angle: 110, radius: 3.2, yPos: 0.1, color: 0xff007a, index: 5 },
       { name: "Lb", angle: -150, radius: 3.0, yPos: 0.2, color: 0xff007a, index: 6 },
       { name: "Rb", angle: 150, radius: 3.0, yPos: 0.2, color: 0xff007a, index: 7 },
-      { name: "Lh", angle: -45, radius: 2.8, yPos: 1.6, color: 0xffaa00, index: 8 }, // Elevated Height L
-      { name: "Rh", angle: 45, radius: 2.8, yPos: 1.6, color: 0xffaa00, index: 9 }, // Elevated Height R
+      { name: "Lh", angle: -90, radius: 2.4, yPos: 1.9, color: 0xffaa00, index: 8 }, // Elevated Height L
+      { name: "Rh", angle: 90, radius: 2.4, yPos: 1.9, color: 0xffaa00, index: 9 }, // Elevated Height R
       { name: "Sub", angle: 0, radius: 2.2, yPos: -0.6, color: 0x00ff88, index: 3 }
     ];
 
