@@ -9,9 +9,41 @@ A production-grade , low-latency browser extension that transforms normal stereo
 * **Universal Browser Tab Capture**: Capture audio generically from YouTube, Netflix, Disney+, Spotify, Twitch, games, and HTML5 players.
 * **7.1 Channel Upmixer**: Intelligently upmixes standard stereo source files into Front Left/Right/Center, Surround L/R, Back L/R, and LFE (Subwoofer) tracks.
 * **Binaural HRTF Engine**: Implements ITD (Interaural Time Difference), IID (Interaural Intensity Difference), and 32-tap FIR pinna reflection filters using standard profiles (MIT KEMAR, CIPIC, SADIE II).
+* **Headphone Acoustic Profiles (v3)**: High-fidelity, 4-stage biquad DSP compensation curves to flatten specific headphone driver responses (Open-back, Closed-back, Gaming, Earbuds).
 * **Psychoacoustic Sub-Bass Synthesis**: Generates higher harmonics of sub-bass pitches so standard headphones can simulate deep cinematic theater bass.
+* **Advanced DSP Enhancements**: Features a dynamic sibilance De-esser, adjustable spectral warmth, and micro-room drift LFO for a fatigue-free, natural listening experience.
+* **Dual-Engine Architecture**: Synchronized filter configurations across an optimized TypeScript WebAudio Worklet and a SIMD-accelerated Rust WASM engine.
 * **3D Soundfield HUD**: Renders a real-time speaker field using WebGL/Three.js showing active spatial wave propagation.
 * **Diagnostics & Benchmarks**: Real-time canvas spectrum analyzers, channel VU meters, and an Offline rendering benchmark suite measuring latency and simulated CPU load.
+
+---
+
+## ⚖️ Technology Comparison: Spatial Cinema vs. Alternatives
+
+| Feature | Spatial Cinema (This Project) | OS-Level Virtual Surround (e.g. Windows Sonic) | Premium Spatial Audio (e.g. Dolby Atmos for Headphones) | Standard Stereo |
+| :--- | :--- | :--- | :--- | :--- |
+| **Execution Environment** | **Browser-native** (Web Audio API, WASM) | OS-level | OS-level / Paid software | Anywhere |
+| **Platform Compatibility** | **Cross-Platform** (Windows, Mac, Linux, ChromeOS) | Windows / Xbox only | Windows / Xbox / Apple ecosystem | Universal |
+| **DSP Latency** | **Ultra-low (2.67ms)** via AudioWorklets & WASM | Low | Low | Zero |
+| **Headphone Compensation** | **Yes** (4-stage Biquad custom profiles) | No (flat output) | Yes (hardware-dependent) | No |
+| **Custom Impulse Responses** | **Yes** (Load custom `.wav` HRTFs) | No | No (proprietary only) | N/A |
+| **Upmixing Algorithm** | Real-time **7.1 channel extraction** from stereo sources | 5.1/7.1 to stereo (requires surround source) | Object-based & channel upmixing | None |
+| **Installation** | **Zero-install** browser extension | Built-in (OS) | Paid add-on or bundled | Built-in |
+| **Customizability** | **High** (Deep parametric control, Room size, Warmth) | Low (On/Off) | Medium (EQ presets) | Low |
+
+---
+
+## 🧠 How Advanced is this Project?
+
+Spatial Cinema represents the cutting edge of **browser-based digital signal processing**. Building an audio engine of this caliber in a browser extension requires navigating strict performance budgets and security sandboxes.
+
+Here are the technical highlights that make this project exceptionally advanced:
+1. **Zero-Latency Target via AudioWorklets:** Uses modern `AudioWorklet` threads to execute lock-free, zero-allocation DSP in real-time, matching the hardware limit latency of roughly `2.67ms` (128 samples at 48kHz).
+2. **SIMD-Accelerated Rust WASM:** Computationally heavy tasks, such as complex vector multiplications for impulse response convolution, are offloaded to a WebAssembly module written in Rust. This takes advantage of WebAssembly SIMD 128-bit operations to execute parallel floating-point mathematics for extreme efficiency.
+3. **Partitioned Overlap-Save Convolution:** Instead of naive time-domain convolution, it implements a highly optimized **Uniformly Partitioned Overlap-Save Binaural Convolver** with a custom Radix-2 Complex 256-point FFT engine to process 32-tap HRTF filters instantaneously.
+4. **AI Spatial Analyzer:** A custom heuristic AI analyzes the input audio stream in real-time (detecting RMS, Zero-Crossing Rate, crest factor, and stereo correlation) to automatically categorize the scene (e.g., dialogue, action, ambient) and dynamically adjust EQ and width parameters without user intervention.
+5. **Phase-Aligned Subharmonic Bass Synthesizer:** Detects low-frequency zero-crossings to mathematically generate missing sub-harmonics, allowing standard headphones to reproduce the physical "rumble" of a cinematic subwoofer.
+6. **Multi-Stage Acoustic Compensation:** Integrates a complex 4-stage Biquad filter chain specifically modeled to flatten the natural frequency response curve of varying headphone drivers (Open-back, Closed-back, Earbuds).
 
 ---
 
